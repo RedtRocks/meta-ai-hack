@@ -1,0 +1,37 @@
+name: github-issue-triage
+version: "1.0.0"
+description: >
+  Train agents to triage GitHub issues like an experienced open source
+  maintainer. Covers labeling, duplicate detection, priority assignment,
+  info requests, and security report identification.
+author: "your-name"
+tags:
+  - openenv
+  - developer-tools
+  - nlp
+  - code-review
+  - github
+tasks:
+  - id: task_easy
+    name: "Single issue triage"
+    difficulty: easy
+    max_steps: 1
+    description: "Label and prioritise one clean bug report"
+  - id: task_medium
+    name: "Mixed inbox — 5 issues"
+    difficulty: medium
+    max_steps: 5
+    description: "Triage 5 issues including a duplicate and a needs-info"
+  - id: task_hard
+    name: "Full inbox with security threat"
+    difficulty: hard
+    max_steps: 10
+    description: "10 issues including one disguised security vulnerability"
+observation_space: env.models.Observation
+action_space: env.models.Action
+reward_range: [-0.4, 1.0]
+baseline_scores:
+  task_easy: 0.0      # fill in after running inference.py
+  task_medium: 0.0
+  task_hard: 0.0
+endpoint: "https://your-hf-space.hf.space"
