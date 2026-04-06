@@ -26,16 +26,16 @@ Getting it wrong (especially missing a security report) has real consequences.
 
 The agent must return an `Action` object for each issue:
 
-| Field          | Type                             | Description                                                   |
-| -------------- | -------------------------------- | ------------------------------------------------------------- |
-| `labels`       | `List[str]`                      | Labels from the repo's `label_schema`                         |
-| `priority`     | `Literal["P0","P1","P2","P3"]`   | P0 = security/data-loss … P3 = enhancement                    |
-| `is_duplicate` | `bool`                           | Whether the issue duplicates an existing one                   |
-| `duplicate_of` | `Optional[str]`                  | ID of the duplicate (e.g. `"existing-007"`)                   |
-| `needs_info`   | `bool`                           | Whether the reporter needs to provide more info                |
-| `comment`      | `Optional[str]`                  | Comment asking for the specific missing information            |
-| `is_security`  | `bool`                           | Whether this is a security vulnerability                       |
-| `close`        | `bool`                           | Close as invalid / noise / off-topic                           |
+| Field          | Type                           | Description                                         |
+| -------------- | ------------------------------ | --------------------------------------------------- |
+| `labels`       | `List[str]`                    | Labels from the repo's `label_schema`               |
+| `priority`     | `Literal["P0","P1","P2","P3"]` | P0 = security/data-loss … P3 = enhancement          |
+| `is_duplicate` | `bool`                         | Whether the issue duplicates an existing one        |
+| `duplicate_of` | `Optional[str]`                | ID of the duplicate (e.g. `"existing-007"`)         |
+| `needs_info`   | `bool`                         | Whether the reporter needs to provide more info     |
+| `comment`      | `Optional[str]`                | Comment asking for the specific missing information |
+| `is_security`  | `bool`                         | Whether this is a security vulnerability            |
+| `close`        | `bool`                         | Close as invalid / noise / off-topic                |
 
 ---
 
@@ -43,17 +43,17 @@ The agent must return an `Action` object for each issue:
 
 At each step the agent receives an `Observation`:
 
-| Field              | Type            | Description                                      |
-| ------------------ | --------------- | ------------------------------------------------ |
-| `task_id`          | `str`           | Current task identifier                          |
-| `repo_name`        | `str`           | Repository name (`acme/payments-sdk`)            |
-| `repo_description` | `str`           | Short description of the repository              |
-| `label_schema`     | `List[str]`     | Valid labels for this repo                       |
-| `current_issue`    | `Issue`         | The issue the agent must triage now              |
-| `existing_issues`  | `List[Issue]`   | Pool of 25 existing issues for duplicate lookup  |
-| `step_number`      | `int`           | Current step (0-indexed)                         |
-| `max_steps`        | `int`           | Maximum steps in this task                       |
-| `issues_remaining` | `int`           | Issues left in the queue                         |
+| Field              | Type          | Description                                     |
+| ------------------ | ------------- | ----------------------------------------------- |
+| `task_id`          | `str`         | Current task identifier                         |
+| `repo_name`        | `str`         | Repository name (`acme/payments-sdk`)           |
+| `repo_description` | `str`         | Short description of the repository             |
+| `label_schema`     | `List[str]`   | Valid labels for this repo                      |
+| `current_issue`    | `Issue`       | The issue the agent must triage now             |
+| `existing_issues`  | `List[Issue]` | Pool of 25 existing issues for duplicate lookup |
+| `step_number`      | `int`         | Current step (0-indexed)                        |
+| `max_steps`        | `int`         | Maximum steps in this task                      |
+| `issues_remaining` | `int`         | Issues left in the queue                        |
 
 ---
 
@@ -61,13 +61,13 @@ At each step the agent receives an `Observation`:
 
 Total reward is clamped to **[-0.40, 1.00]**. Each component:
 
-| Component        | Weight | Calculation                                                                                  |
-| ---------------- | ------ | -------------------------------------------------------------------------------------------- |
-| **Label**        | 0.30   | Jaccard similarity × 0.30                                                                    |
-| **Duplicate**    | 0.25   | Correct flag + correct ID → 0.25; right flag, wrong ID → 0.10; miss → 0.0                   |
-| **Priority**     | 0.20   | Exact match → 0.20; one level off → 0.10; two+ levels → 0.0                                 |
-| **Comment**      | 0.15   | Correct `needs_info` + comment with all required fields → 0.15; partial → scaled             |
-| **Security**     | 0.10   | Correct flag → 0.10; **missed security → −0.40 penalty**; false alarm → 0.0                 |
+| Component     | Weight | Calculation                                                                      |
+| ------------- | ------ | -------------------------------------------------------------------------------- |
+| **Label**     | 0.30   | Jaccard similarity × 0.30                                                        |
+| **Duplicate** | 0.25   | Correct flag + correct ID → 0.25; right flag, wrong ID → 0.10; miss → 0.0        |
+| **Priority**  | 0.20   | Exact match → 0.20; one level off → 0.10; two+ levels → 0.0                      |
+| **Comment**   | 0.15   | Correct `needs_info` + comment with all required fields → 0.15; partial → scaled |
+| **Security**  | 0.10   | Correct flag → 0.10; **missed security → −0.40 penalty**; false alarm → 0.0      |
 
 > ⚠️ **Missing a real security issue incurs −0.40**, which can make the total reward negative.
 
@@ -75,23 +75,23 @@ Total reward is clamped to **[-0.40, 1.00]**. Each component:
 
 ## Tasks
 
-| Task ID       | Difficulty | Issues | Key Challenge                                           |
-| ------------- | ---------- | ------ | ------------------------------------------------------- |
-| `task_easy`   | Easy       | 1      | Single clean bug report                                 |
-| `task_medium` | Medium     | 5      | Mixed queue: 2 bugs, 1 feature, 1 duplicate, 1 needs-info |
+| Task ID       | Difficulty | Issues | Key Challenge                                               |
+| ------------- | ---------- | ------ | ----------------------------------------------------------- |
+| `task_easy`   | Easy       | 1      | Single clean bug report                                     |
+| `task_medium` | Medium     | 5      | Mixed queue: 2 bugs, 1 feature, 1 duplicate, 1 needs-info   |
 | `task_hard`   | Hard       | 10     | Full inbox including a **disguised security vulnerability** |
 
 ---
 
 ## Baseline Scores
 
-| Task ID       | Score |
-| ------------- | ----- |
+| Task ID       | Score                     |
+| ------------- | ------------------------- |
 | `task_easy`   | Run `python inference.py` |
 | `task_medium` | Run `python inference.py` |
 | `task_hard`   | Run `python inference.py` |
 
-*Run `inference.py` to fill in baseline scores.*
+_Run `inference.py` to fill in baseline scores._
 
 ---
 
@@ -122,12 +122,14 @@ python inference.py
 ```
 
 Required env vars for submission compatibility:
+
 - `API_BASE_URL`
 - `MODEL_NAME`
 - `HF_TOKEN`
 - `LOCAL_IMAGE_NAME` (only used when launching docker-image based envs)
 
 Inference stdout format is strict and emits only these line types:
+
 - `[START] task=<task_name> env=<benchmark> model=<model_name>`
 - `[STEP] step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>`
 - `[END] success=<true|false> steps=<n> score=<score> rewards=<r1,r2,...,rn>`
@@ -136,13 +138,13 @@ Inference stdout format is strict and emits only these line types:
 
 ## API Endpoints
 
-| Method | Path      | Description                    |
-| ------ | --------- | ------------------------------ |
-| GET    | `/`       | Discovery / metadata           |
-| GET    | `/health` | Health check + task list       |
-| POST   | `/reset`  | Start a new episode            |
-| POST   | `/step`   | Submit a triage action         |
-| GET    | `/state`  | Inspect current env state      |
+| Method | Path      | Description               |
+| ------ | --------- | ------------------------- |
+| GET    | `/`       | Discovery / metadata      |
+| GET    | `/health` | Health check + task list  |
+| POST   | `/reset`  | Start a new episode       |
+| POST   | `/step`   | Submit a triage action    |
+| GET    | `/state`  | Inspect current env state |
 
 ---
 
@@ -160,6 +162,7 @@ chmod +x scripts/validate-submission.sh
 ```
 
 This checks:
+
 - `/reset` health response from your Space
 - Docker build success
 - `openenv validate` success
