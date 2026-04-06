@@ -1,50 +1,45 @@
-"""Baseline inference agent using OpenAI API.
+"""OpenEnv baseline inference runner.
 
-Usage:
-    # Start the server first:
-    #   uvicorn app:app --port 7860
-    #
-    # Then run this script:
-    #   OPENAI_API_KEY=sk-... python inference.py
-    #   python inference.py --base-url http://localhost:7860
+Mandatory environment variables for submission setups:
+- API_BASE_URL
+- MODEL_NAME
+- HF_TOKEN
+- LOCAL_IMAGE_NAME (used only for docker-image env launches; optional here)
+
+This script uses OpenAI Client for all LLM calls and prints only these line types
+for each task episode:
+[START] ...
+[STEP]  ...
+[END]   ...
 """
 
 from __future__ import annotations
 
-import argparse
 import json
-import sys
+import os
+from typing import Any
 
 import requests
 from openai import OpenAI
 
-SYSTEM_PROMPT = """\
-You are an experienced open source maintainer triaging GitHub issues.
-You will receive a JSON object describing the current issue and the repo context.
-You must respond with ONLY a valid JSON object — no markdown, no explanation.
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN = os.getenv("HF_TOKEN")
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")  # kept for submission compatibility
 
-The JSON must match this exact schema:
-{
-  "labels": ["label1", "label2"],
-  "priority": "P0"|"P1"|"P2"|"P3",
-  "is_duplicate": true|false,
-  "duplicate_of": "existing-007"|null,
-  "needs_info": true|false,
-  "comment": "string or null",
-  "is_security": true|false,
-  "close": true|false
-}
+BENCHMARK = os.getenv("OPENENV_BENCHMARK", "github-issue-triage")
+ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:7860").rstrip("/")
+TASKS = ["task_easy", "task_medium", "task_hard"]
+MAX_STEPS_FALLBACK = 20
 
-Priority guide: P0=security/data loss, P1=major bug, P2=minor bug, P3=enhancement.
-Security issues: authentication bypass, data exposure, injection, privilege escalation.
-Duplicate detection: check existing_issues carefully for same root cause.
-needs_info: set true only if reproduction steps or environment info is missing.
-If needs_info=true, comment must ask for the specific missing information.
-"""
+SYSTEM_PROMPT = (
+    "You are triaging GitHub issues. Return ONLY JSON with keys: "
+    "labels, priority, is_duplicate, duplicate_of, needs_info, comment, is_security, close."
+)
 
 DEFAULT_ACTION = {
-    "labels": [],
-    "priority": "P3",
+    "labels": ["bug"],
+    "priority": "P2",
     "is_duplicate": False,
     "duplicate_of": None,
     "needs_info": False,
@@ -54,112 +49,183 @@ DEFAULT_ACTION = {
 }
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run baseline triage agent")
-    parser.add_argument(
-        "--base-url",
-        default="http://localhost:7860",
-        help="Base URL of the triage environment server (default: http://localhost:7860)",
-    )
-    parser.add_argument(
-        "--model",
-        default="gpt-4o-mini",
-        help="OpenAI model to use (default: gpt-4o-mini)",
-    )
-    return parser.parse_args()
+def _stderr(msg: str) -> None:
+    print(msg, file=os.sys.stderr, flush=True)
 
 
-def safe_parse_action(raw: str) -> dict:
-    """Parse the model's JSON response, falling back to a safe default."""
+def _escape_single_line(value: str) -> str:
+    return value.replace("\n", " ").replace("\r", " ").strip()
+
+
+def log_start(task: str) -> None:
+    print(f"[START] task={task} env={BENCHMARK} model={MODEL_NAME}", flush=True)
+
+
+def log_step(step: int, action_str: str, reward: float, done: bool, error: str | None) -> None:
+    done_val = str(done).lower()
+    error_val = "null" if error is None else _escape_single_line(error)
+    action_val = _escape_single_line(action_str)
+    print(
+        f"[STEP] step={step} action={action_val} reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
+
+
+def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(
+        f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}",
+        flush=True,
+    )
+
+
+def _safe_parse_action(raw: str) -> dict[str, Any]:
     try:
         data = json.loads(raw)
-        # Minimal validation
         if not isinstance(data, dict):
             return dict(DEFAULT_ACTION)
-        # Ensure required keys exist with sane defaults
-        action = dict(DEFAULT_ACTION)
-        action.update({k: v for k, v in data.items() if k in DEFAULT_ACTION})
-        return action
-    except (json.JSONDecodeError, TypeError, KeyError):
+        out = dict(DEFAULT_ACTION)
+        out.update({k: v for k, v in data.items() if k in out})
+        if not isinstance(out["labels"], list):
+            out["labels"] = DEFAULT_ACTION["labels"]
+        if out["priority"] not in {"P0", "P1", "P2", "P3"}:
+            out["priority"] = DEFAULT_ACTION["priority"]
+        return out
+    except Exception:
         return dict(DEFAULT_ACTION)
 
 
-def main() -> None:
-    args = parse_args()
-    base_url = args.base_url.rstrip("/")
-    client = OpenAI()  # reads OPENAI_API_KEY from env
+def _heuristic_action(obs: dict[str, Any]) -> dict[str, Any]:
+    issue = obs.get("current_issue", {})
+    text = f"{issue.get('title', '')}\n{issue.get('body', '')}".lower()
 
-    tasks = ["task_easy", "task_medium", "task_hard"]
+    action = dict(DEFAULT_ACTION)
 
-    for task_id in tasks:
-        print(f"\n{'='*60}")
-        print(f"  TASK: {task_id}")
-        print(f"{'='*60}")
+    labels = []
+    if "feature" in text or "support" in text or "add " in text:
+        labels.append("enhancement")
+        action["priority"] = "P3"
+    elif "doc" in text or "documentation" in text or "guide" in text:
+        labels.append("documentation")
+        action["priority"] = "P2"
+    else:
+        labels.append("bug")
+        action["priority"] = "P2"
 
-        # Reset
-        resp = requests.post(f"{base_url}/reset", json={"task_id": task_id})
-        if resp.status_code != 200:
-            print(f"ERROR resetting: {resp.text}", file=sys.stderr)
-            continue
-        obs = resp.json()
+    if "security" in text or "xss" in text or "token" in text or "bypass" in text:
+        action["is_security"] = True
+        action["priority"] = "P0"
+        if "security" not in labels:
+            labels.append("security")
 
-        total_reward = 0.0
-        step = 0
-        done = False
+    if "not sure" in text or "please help" in text or "just says" in text:
+        action["needs_info"] = True
+        labels.append("needs-reproduction")
+        action["comment"] = "Please share sdk version, os/python version, and full traceback."
 
-        while not done:
-            # Call model
-            try:
-                response = client.chat.completions.create(
-                    model=args.model,
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": json.dumps(obs)},
-                    ],
-                    response_format={"type": "json_object"},
-                    temperature=0,
-                )
-                raw_content = response.choices[0].message.content or "{}"
-                action_json = safe_parse_action(raw_content)
-            except Exception as exc:
-                print(f"  Model error: {exc}", file=sys.stderr)
-                action_json = dict(DEFAULT_ACTION)
+    action["labels"] = sorted(set(labels))
+    return action
 
-            # Step
-            resp = requests.post(f"{base_url}/step", json=action_json)
-            if resp.status_code != 200:
-                print(f"  Step error: {resp.text}", file=sys.stderr)
-                break
-            result = resp.json()
 
-            reward = result["reward"]["total"]
-            total_reward += reward
-            done = result["done"]
-            obs = result["observation"]
-            step += 1
-
-            print(
-                json.dumps(
-                    {
-                        "task": task_id,
-                        "step": step,
-                        "reward": reward,
-                        "done": done,
-                        "label_score": result["reward"]["label_score"],
-                        "security_score": result["reward"]["security_score"],
-                    }
-                )
-            )
-
-        print(
-            json.dumps(
-                {
-                    "task": task_id,
-                    "total_reward": round(total_reward, 3),
-                    "steps": step,
-                }
-            )
+def _choose_action(client: OpenAI, obs: dict[str, Any]) -> dict[str, Any]:
+    payload = json.dumps(obs, ensure_ascii=True)
+    try:
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": payload},
+            ],
+            temperature=0,
+            response_format={"type": "json_object"},
         )
+        raw = completion.choices[0].message.content or "{}"
+        return _safe_parse_action(raw)
+    except Exception as exc:
+        _stderr(f"[DEBUG] model request failed: {exc}")
+        return _heuristic_action(obs)
+
+
+def _task_success(score: float) -> bool:
+    return score >= 0.5
+
+
+def _normalize_score(rewards: list[float]) -> float:
+    if not rewards:
+        return 0.0
+    avg_reward = sum(rewards) / len(rewards)
+    # Reward range is [-0.40, 1.00] per step -> map to [0, 1]
+    normalized = (avg_reward + 0.40) / 1.40
+    return max(0.0, min(1.0, normalized))
+
+
+def run_task(client: OpenAI, task_id: str) -> None:
+    rewards: list[float] = []
+    steps_taken = 0
+    success = False
+    score = 0.0
+
+    log_start(task_id)
+
+    try:
+        reset_resp = requests.post(
+            f"{ENV_BASE_URL}/reset",
+            json={"task_id": task_id},
+            timeout=30,
+        )
+        reset_resp.raise_for_status()
+        obs = reset_resp.json()
+
+        max_steps = int(obs.get("max_steps", MAX_STEPS_FALLBACK))
+
+        for step in range(1, max_steps + 1):
+            action = _choose_action(client, obs)
+            action_str = json.dumps(action, separators=(",", ":"), ensure_ascii=True)
+
+            step_resp = requests.post(
+                f"{ENV_BASE_URL}/step",
+                json=action,
+                timeout=30,
+            )
+            if step_resp.status_code != 200:
+                err = _escape_single_line(step_resp.text)
+                log_step(step, action_str, 0.0, True, err)
+                break
+
+            result = step_resp.json()
+            reward = float(result.get("reward", {}).get("total", 0.0))
+            done = bool(result.get("done", False))
+            info = result.get("info", {})
+            err = info.get("last_action_error")
+
+            rewards.append(reward)
+            steps_taken = step
+            log_step(step, action_str, reward, done, err)
+
+            if done:
+                break
+            obs = result["observation"]
+
+        score = _normalize_score(rewards)
+        success = _task_success(score)
+
+    except Exception as exc:
+        _stderr(f"[DEBUG] task failed: {exc}")
+
+    finally:
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+
+
+def main() -> None:
+    api_key = HF_TOKEN or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        _stderr("[DEBUG] missing HF_TOKEN/OPENAI_API_KEY; model calls will fail over to heuristic")
+        api_key = "missing-key"
+
+    client = OpenAI(base_url=API_BASE_URL, api_key=api_key)
+
+    for task_id in TASKS:
+        run_task(client, task_id)
 
 
 if __name__ == "__main__":

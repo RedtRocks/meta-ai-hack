@@ -34,11 +34,15 @@ class GitHubTriageEnv:
 
     # ── Public API ───────────────────────────────────────────────────────
 
-    def reset(self, task_id: str) -> Observation:
+    def reset(self, task_id: str | None = None) -> Observation:
         """Start (or restart) an episode for the given task.
 
         Raises ``ValueError`` if *task_id* is not in the task catalogue.
         """
+        if task_id is None:
+            # Deterministic default used by lightweight health/validator probes.
+            task_id = "task_easy"
+
         if task_id not in self.tasks:
             raise ValueError(
                 f"Unknown task_id '{task_id}'. "

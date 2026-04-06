@@ -4,7 +4,7 @@ description: >
   Train agents to triage GitHub issues like an experienced open source
   maintainer. Covers labeling, duplicate detection, priority assignment,
   info requests, and security report identification.
-author: "your-name"
+author: "metahack"
 tags:
   - openenv
   - developer-tools
@@ -31,7 +31,7 @@ observation_space: env.models.Observation
 action_space: env.models.Action
 reward_range: [-0.4, 1.0]
 baseline_scores:
-  task_easy: 0.0      # fill in after running inference.py
-  task_medium: 0.0
-  task_hard: 0.0
-endpoint: "https://your-hf-space.hf.space"
+  task_easy: null
+  task_medium: null
+  task_hard: null
+endpoint: "http://localhost:7860"

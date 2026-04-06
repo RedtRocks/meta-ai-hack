@@ -87,9 +87,9 @@ Total reward is clamped to **[-0.40, 1.00]**. Each component:
 
 | Task ID       | Score |
 | ------------- | ----- |
-| `task_easy`   | TBD   |
-| `task_medium` | TBD   |
-| `task_hard`   | TBD   |
+| `task_easy`   | Run `python inference.py` |
+| `task_medium` | Run `python inference.py` |
+| `task_hard`   | Run `python inference.py` |
 
 *Run `inference.py` to fill in baseline scores.*
 
@@ -114,10 +114,23 @@ docker run -p 7860:7860 github-triage
 ### Run Baseline Agent
 
 ```bash
-OPENAI_API_KEY=sk-... python inference.py
-# or with a custom server URL:
-python inference.py --base-url http://localhost:7860
+export HF_TOKEN=hf_xxx
+export API_BASE_URL=https://router.huggingface.co/v1
+export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+export ENV_BASE_URL=http://localhost:7860
+python inference.py
 ```
+
+Required env vars for submission compatibility:
+- `API_BASE_URL`
+- `MODEL_NAME`
+- `HF_TOKEN`
+- `LOCAL_IMAGE_NAME` (only used when launching docker-image based envs)
+
+Inference stdout format is strict and emits only these line types:
+- `[START] task=<task_name> env=<benchmark> model=<model_name>`
+- `[STEP] step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>`
+- `[END] success=<true|false> steps=<n> score=<score> rewards=<r1,r2,...,rn>`
 
 ---
 
@@ -135,7 +148,21 @@ python inference.py --base-url http://localhost:7860
 
 ## HuggingFace Space
 
-> 🔗 **https://your-hf-space.hf.space** *(placeholder — update after deployment)*
+Set your deployed Space URL in `openenv.yaml` `endpoint` before submission.
+
+## Pre-Submission Validation
+
+Run the included validator script:
+
+```bash
+chmod +x scripts/validate-submission.sh
+./scripts/validate-submission.sh https://your-space.hf.space
+```
+
+This checks:
+- `/reset` health response from your Space
+- Docker build success
+- `openenv validate` success
 
 ---
 

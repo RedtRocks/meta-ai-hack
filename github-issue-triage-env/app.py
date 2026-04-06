@@ -34,7 +34,7 @@ env = GitHubTriageEnv()
 # ── Request schemas ──────────────────────────────────────────────────────
 
 class ResetRequest(BaseModel):
-    task_id: str
+    task_id: str | None = None
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────
