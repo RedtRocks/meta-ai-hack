@@ -112,8 +112,7 @@ ipython_config.py
 .pdm-build/
 __pycache__/
 __pycache__
-github-issue-triage-env/
-github-issue-triage-env
+
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
