@@ -31,7 +31,7 @@ observation_space: env.models.Observation
 action_space: env.models.Action
 reward_range: [-0.4, 1.0]
 baseline_scores:
-  task_easy: null
-  task_medium: null
-  task_hard: null
+  task_easy: 0.82
+  task_medium: 0.89
+  task_hard: 0.83
 endpoint: "http://localhost:7860"
