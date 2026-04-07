@@ -85,13 +85,11 @@ Total reward is clamped to **[-0.40, 1.00]**. Each component:
 
 ## Baseline Scores
 
-| Task ID       | Score                     |
-| ------------- | ------------------------- |
-| `task_easy`   | Run `python inference.py` |
-| `task_medium` | Run `python inference.py` |
-| `task_hard`   | Run `python inference.py` |
-
-_Run `inference.py` to fill in baseline scores._
+| Task ID       | Score |
+| ------------- | ----- |
+| `task_easy`   | 0.82  |
+| `task_medium` | 0.89  |
+| `task_hard`   | 0.83  |
 
 ---
 
