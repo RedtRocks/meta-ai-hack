@@ -86,10 +86,10 @@ def log_step(
 
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
-    """Emit one [END] line always — even on exception. score in [0, 1]."""
+    """Emit one [END] line always — even on exception."""
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
         flush=True,
     )
 

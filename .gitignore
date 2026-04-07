@@ -127,7 +127,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
-env/
+# env/  (Commenting out because env/ is our package directory, not a venv)
 venv/
 ENV/
 env.bak/
@@ -180,3 +180,14 @@ cython_debug/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+.env
+.venv
+__pycache__/
+*.pyc
+docs/
+scripts/
+test_smoke.py
+.git/
+.gitignore
+.agents/
