@@ -1,4 +1,4 @@
-# 🏷️ GitHub Issue Triage — OpenEnv
+# 🏷️ GitHub Issue — OpenEnv
 
 An OpenEnv-compliant reinforcement learning environment that trains AI agents to
 triage GitHub issues like an experienced open source maintainer.
