@@ -1,3 +1,12 @@
+---
+title: Github Issue Env
+emoji: 🚀
+colorFrom: blue
+colorTo: red
+sdk: docker
+pinned: false
+---
+
 # 🏷️ GitHub Issue — OpenEnv
 
 An OpenEnv-compliant reinforcement learning environment that trains AI agents to
