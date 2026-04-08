@@ -384,7 +384,7 @@ def do_reset(task_id: str):
     )
 
 
-def do_step(labels_str, priority, is_duplicate, duplicate_of, needs_info, comment, is_security, close):
+def do_step(labels_list, priority, is_duplicate, duplicate_of, needs_info, comment, is_security, close):
     global _current_obs, _step_history, _last_reward
 
     if env._state is None or env._state.get("done"):
@@ -396,8 +396,8 @@ def do_step(labels_str, priority, is_duplicate, duplicate_of, needs_info, commen
             "{}",
         )
 
-    # Parse labels
-    labels = [l.strip() for l in labels_str.split(",") if l.strip()] if labels_str else []
+    # labels_list comes directly from CheckboxGroup as a Python list
+    labels = labels_list if labels_list else []
 
     action = Action(
         labels=labels,
@@ -532,12 +532,13 @@ with gr.Blocks(
                         )
                         reset_btn = gr.Button("🔄 Reset", variant="secondary", scale=1, elem_classes=["reset-btn"])
 
+                    gr.Markdown("**🏷️ Labels** — select all that apply:")
+                    labels_input = gr.CheckboxGroup(
+                        choices=LABEL_CHOICES,
+                        value=[],
+                        label="Labels",
+                    )
                     with gr.Row():
-                        labels_input = gr.Textbox(
-                            label="Labels (comma-separated)",
-                            placeholder="bug, needs-reproduction",
-                            scale=3,
-                        )
                         priority_dd = gr.Dropdown(
                             choices=PRIORITY_CHOICES,
                             value="P2",
@@ -582,9 +583,9 @@ with gr.Blocks(
 
             # ── Wire events ──────────────────────────────────────
             reset_btn.click(
-                fn=do_reset,
+                fn=lambda task_id: (*do_reset(task_id), []),
                 inputs=[task_dd],
-                outputs=[issue_html, reward_html, step_log_html, status_md, raw_obs_json],
+                outputs=[issue_html, reward_html, step_log_html, status_md, raw_obs_json, labels_input],
             )
 
             submit_btn.click(
