@@ -22,7 +22,8 @@ api.upload_folder(
         "*.pyc",
         ".dockerignore",
         ".gitignore",
-        ".agents/*"
+        ".agents/*",
+        "upload_space.py"
     ]
 )
 print("Upload Complete!")
