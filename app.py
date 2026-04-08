@@ -90,7 +90,13 @@ def get_state():
 # Gradio Playground UI
 # ═══════════════════════════════════════════════════════════════════════════
 
-TASK_CHOICES = list(env.tasks.keys())
+TASK_CHOICES = [
+    ("🟢 Easy — Single Bug Report (task_easy)", "task_easy"),
+    ("🟡 Medium — Mixed Inbox, 5 Issues (task_medium)", "task_medium"),
+    ("🔴 Hard — Full Inbox + Security Threat (task_hard)", "task_hard"),
+    ("🚨 Medium — Release Blockers (task_release_blocker)", "task_release_blocker"),
+    ("☠️ Hard — Community Inbox + PII Exposure (task_community)", "task_community"),
+]
 LABEL_CHOICES = env.label_schema["labels"]
 PRIORITY_CHOICES = ["P0", "P1", "P2", "P3"]
 
@@ -526,7 +532,7 @@ with gr.Blocks(
                     with gr.Row():
                         task_dd = gr.Dropdown(
                             choices=TASK_CHOICES,
-                            value=TASK_CHOICES[0],
+                            value="task_easy",
                             label="Task",
                             scale=2,
                         )
@@ -713,7 +719,7 @@ print(f"Done: {result['done']}")
             gr.Markdown("### Raw JSON Interface")
             with gr.Row():
                 with gr.Column():
-                    raw_task_dd = gr.Dropdown(choices=TASK_CHOICES, value=TASK_CHOICES[0], label="Task")
+                    raw_task_dd = gr.Dropdown(choices=TASK_CHOICES, value="task_easy", label="Task")
                     raw_reset_btn = gr.Button("Reset", variant="secondary")
                     raw_state_btn = gr.Button("Get State", variant="secondary")
                 with gr.Column(scale=2):
