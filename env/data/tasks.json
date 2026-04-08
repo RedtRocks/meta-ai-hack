@@ -307,5 +307,200 @@
         "close": false
       }
     ]
+  },
+
+  "task_release_blocker": {
+    "task_id": "task_release_blocker",
+    "repo_name": "acme/payments-sdk",
+    "repo_description": "Official Python SDK for the Acme Payments API. Supports charges, refunds, subscriptions, and webhook handling.",
+    "difficulty": "medium",
+    "max_steps": 4,
+    "current_issues": [
+      {
+        "id": "triage-rb-001",
+        "title": "URGENT: Charges being created twice — customers double-billed",
+        "body": "We are seeing a critical production issue where calling `client.charges.create()` is sometimes resulting in **two charges being created** for a single API call. Our Stripe dashboard shows duplicate charge IDs with identical amounts and timestamps.\n\nWe discovered this when a customer complained about being charged twice for a $200 subscription renewal.\n\n```python\nclient = Client(api_key='sk_live_xxx')\ncharge = client.charges.create(\n    amount=20000,\n    currency='usd',\n    customer='cus_abc123',\n    idempotency_key='order_789'\n)\n# Two charge objects created: ch_AAA and ch_BBB, both $200\n```\n\nThe `idempotency_key` parameter appears to be silently dropped from the request headers — it is never forwarded to the API. This means retries on network errors create duplicate charges.\n\nImpact: Financial loss for customers, severe trust issue.\nSDK: 2.3.1, Python 3.11, Production environment.",
+        "author": "cto_carol",
+        "created_at": "2025-12-17T07:45:00Z",
+        "tags": ["bug", "production", "urgent"]
+      },
+      {
+        "id": "triage-rb-002",
+        "title": "SDK crashes on Python 3.12 — SyntaxError in webhooks.py",
+        "body": "After upgrading to Python 3.12, the entire SDK fails to import. The issue is a `SyntaxError` in `webhooks.py` caused by use of the deprecated f-string syntax that was removed in 3.12.\n\n```\n$ python -c 'import acme_payments'\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \".../acme_payments/__init__.py\", line 3, in <module>\n    from .webhooks import verify_signature\n  File \".../acme_payments/webhooks.py\", line 88\n    debug_str = f'{f\"inner {val}\"}'\n    ^\nSyntaxError: f-string: cannot use starred expression here\n```\n\nThis is a **release blocker** — no Python 3.12 user can use the SDK at all.\n\nPython 3.12.0, macOS 14.3, SDK 2.3.1",
+        "author": "upgrade_ulrich",
+        "created_at": "2025-12-17T09:10:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-rb-003",
+        "title": "Consider adding SDK version to User-Agent header",
+        "body": "Would be nice if the SDK included its version in the `User-Agent` request header so Acme's API logs can track which SDK version customers are using.\n\nCurrently:\n```\nUser-Agent: python-requests/2.31.0\n```\n\nProposed:\n```\nUser-Agent: acme-python-sdk/2.3.1 python-requests/2.31.0 Python/3.11.4\n```\n\nThis is a common pattern in Stripe, Twilio, and other SDKs. Would help with support and deprecation tracking.",
+        "author": "dx_dev",
+        "created_at": "2025-12-17T11:00:00Z",
+        "tags": ["enhancement"]
+      },
+      {
+        "id": "triage-rb-004",
+        "title": "Subscription renewal fails but no clear error message",
+        "body": "Our subscription renewal job is failing and I can't tell why. The SDK raises an exception but the message is just 'Request failed'.\n\n```python\ntry:\n    client.subscriptions.renew('sub_xyz')\nexcept Exception as e:\n    print(e)  # 'Request failed'\n```\n\nIs this a rate limit? A network error? An invalid subscription ID? I can't tell.",
+        "author": "confused_dev",
+        "created_at": "2025-12-17T14:30:00Z",
+        "tags": []
+      }
+    ],
+    "gold": [
+      {
+        "labels": ["bug"],
+        "priority": "P0",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug"],
+        "priority": "P0",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["enhancement"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug", "needs-reproduction"],
+        "priority": "P2",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": true,
+        "required_info_fields": ["sdk version", "python version", "full error traceback", "subscription id"],
+        "is_security": false,
+        "close": false
+      }
+    ]
+  },
+
+  "task_community": {
+    "task_id": "task_community",
+    "repo_name": "acme/payments-sdk",
+    "repo_description": "Official Python SDK for the Acme Payments API. Supports charges, refunds, subscriptions, and webhook handling.",
+    "difficulty": "hard",
+    "max_steps": 6,
+    "current_issues": [
+      {
+        "id": "triage-com-001",
+        "title": "client.refunds.list() does not support filtering by date range",
+        "body": "The `client.refunds.list()` method does not support `created_after` and `created_before` parameters, unlike the underlying REST API which supports them. This forces us to fetch all refunds and filter client-side, which is very slow for high-volume accounts.\n\nDesired:\n```python\nrefunds = client.refunds.list(\n    created_after='2025-01-01',\n    created_before='2025-01-31'\n)\n```\n\nCurrent API docs confirm these filters exist: https://docs.acme.dev/api/refunds#list",
+        "author": "data_diana",
+        "created_at": "2025-12-18T08:00:00Z",
+        "tags": ["enhancement"]
+      },
+      {
+        "id": "triage-com-002",
+        "title": "TypeError when passing Decimal amount instead of int",
+        "body": "When passing a `decimal.Decimal` value as the `amount` parameter, the SDK raises a `TypeError` during JSON serialisation instead of converting it to an int.\n\n```python\nfrom decimal import Decimal\nclient.charges.create(amount=Decimal('2000'), currency='usd')\n# TypeError: Object of type Decimal is not JSON serializable\n```\n\nThis is a common pattern when working with financial amounts in Python. The SDK should either accept `Decimal` or raise a clearer `ValueError` with guidance.\n\nSDK 2.3.1, Python 3.11",
+        "author": "finance_fred",
+        "created_at": "2025-12-18T09:45:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-com-003",
+        "title": "debug=True leaks full customer PII and raw card data into application logs",
+        "body": "I was profiling our integration and enabled `debug=True` on the client for a few hours in staging. I noticed that the debug output contains **complete, unredacted HTTP request and response bodies**, including:\n\n- Full card numbers from tokenisation responses (raw PANs visible in log)\n- Customer email, name, address from billing details\n- Bank account numbers from ACH payment method objects\n\n```python\nclient = Client(api_key='sk_test_xxx', debug=True)\nclient.payment_methods.create(\n    type='card',\n    card={'number': '4242424242424242', 'exp_month': 12, 'exp_year': 2026, 'cvc': '123'}\n)\n# DEBUG: --> POST /v2/payment_methods\n# DEBUG: Body: {\"type\": \"card\", \"card\": {\"number\": \"4242424242424242\", \"exp_month\": 12, \"exp_year\": 2026, \"cvc\": \"123\"}}\n# DEBUG: <-- 200 OK\n# DEBUG: Response: {\"id\": \"pm_xxx\", \"card\": {\"last4\": \"4242\", \"number\": \"4242424242424242\", ...}}\n```\n\nAny developer who accidentally enables `debug=True` in production will log full **PAN data and CVC codes** into their application logs. This violates PCI-DSS compliance requirements that mandate card data must **never appear in logs**.\n\nThis is a **serious security vulnerability**. The fix should mask card numbers (show only last 4), redact CVCs entirely, and sanitise all PII fields (email, name, address) in debug output.\n\nSDK 2.3.1, found during routine security review.",
+        "author": "security_sam",
+        "created_at": "2025-12-18T11:30:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-com-004",
+        "title": "Add async context manager support to Client",
+        "body": "The async client doesn't support `async with` syntax for automatic session cleanup. This means users have to manually call `await client.close()` or risk leaking HTTP connections.\n\nDesired pattern:\n```python\nasync with acme_payments.aio.Client(api_key='sk_test') as client:\n    charge = await client.charges.create(amount=1000, currency='usd')\n# Session automatically closed here\n```\n\nThis is the standard pattern in aiohttp and httpx-based clients.",
+        "author": "async_alice",
+        "created_at": "2025-12-18T13:00:00Z",
+        "tags": ["enhancement"]
+      },
+      {
+        "id": "triage-com-005",
+        "title": "Duplicate of existing webhook signature issue",
+        "body": "Same problem as reported by others — webhook signature verification fails after migrating to a new server. SDK 2.3.1, Python 3.11, same signing secret. Verifies fine on old server (Python 3.10).\n\nPlease fix this, it's blocking our production deploy.",
+        "author": "another_webhook_user",
+        "created_at": "2025-12-18T15:00:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-com-006",
+        "title": "Great library, small docs typo",
+        "body": "Love the SDK! Just wanted to flag a small typo in the README — in the Authentication section it says 'initalize' instead of 'initialize'.\n\nFeel free to close this if you have a separate docs repo.",
+        "author": "helpful_harry",
+        "created_at": "2025-12-18T17:30:00Z",
+        "tags": ["documentation"]
+      }
+    ],
+    "gold": [
+      {
+        "labels": ["enhancement"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug"],
+        "priority": "P2",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["security"],
+        "priority": "P0",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": true,
+        "close": false
+      },
+      {
+        "labels": ["enhancement"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug", "duplicate"],
+        "priority": "P1",
+        "is_duplicate": true,
+        "duplicate_of": "existing-019",
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["documentation"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": true
+      }
+    ]
   }
 }
