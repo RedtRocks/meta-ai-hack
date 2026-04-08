@@ -42,25 +42,11 @@ class ResetRequest(BaseModel):
     task_id: str | None = None
 
 
-from fastapi import Request
 from fastapi.responses import RedirectResponse
 
 @api.get("/")
-def root(request: Request):
-    if "text/html" in request.headers.get("accept", ""):
-        return RedirectResponse(url="/web")
-    return {
-        "name": "github-issue-triage",
-        "version": "1.0.0",
-        "description": "Train agents to triage GitHub issues like an experienced open source maintainer.",
-        "endpoints": [
-            {"method": "POST", "path": "/reset", "description": "Start a new episode"},
-            {"method": "POST", "path": "/step", "description": "Submit an action"},
-            {"method": "GET", "path": "/state", "description": "Get current env state"},
-            {"method": "GET", "path": "/health", "description": "Health check"},
-            {"method": "GET", "path": "/web", "description": "Gradio playground UI"},
-        ],
-    }
+def root():
+    return RedirectResponse(url="/web")
 
 
 @api.get("/health")
