@@ -38,6 +38,7 @@ BENCHMARK: str = os.getenv("OPENENV_BENCHMARK", "github-issue-triage")
 ENV_BASE_URL: str = os.getenv("ENV_BASE_URL", "http://localhost:7860").rstrip("/")
 TASKS: List[str] = ["task_easy", "task_medium", "task_hard", "task_release_blocker", "task_community"]
 MAX_STEPS_FALLBACK = 20
+INFERENCE_DEBUG = os.getenv("INFERENCE_DEBUG", "0") == "1"
 
 SYSTEM_PROMPT = (
     "You are triaging GitHub issues. Return ONLY JSON with keys: "
@@ -57,7 +58,8 @@ DEFAULT_ACTION = {
 
 
 def _stderr(msg: str) -> None:
-    print(msg, file=os.sys.stderr, flush=True)
+    if INFERENCE_DEBUG:
+        print(msg, file=os.sys.stderr, flush=True)
 
 
 def _escape_single_line(value: str) -> str:
