@@ -347,7 +347,7 @@ def _format_reward_html(reward_dict: dict | None) -> str:
 def _format_step_log(history: list) -> str:
     """Format the step history as a monospace log."""
     if not history:
-        return '<div class="step-log"><span style="color:#E2E8F0;">No steps taken yet. Reset the environment to start.</span></div>'
+        return f'<div class="step-log">Episode started. Submit a triage action to see the step logs.</div>'
 
     lines = []
     for i, entry in enumerate(history):
