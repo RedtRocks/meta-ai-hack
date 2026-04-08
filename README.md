@@ -1,13 +1,15 @@
 ---
-title: Github Issue Env
-emoji: 🚀
-colorFrom: blue
-colorTo: red
+title: GitHub Issue Triage — OpenEnv
+emoji: 🏷️
+colorFrom: indigo
+colorTo: purple
 sdk: docker
-pinned: false
+app_port: 7860
+tags:
+  - openenv
 ---
 
-# 🏷️ GitHub Issue — OpenEnv
+# 🏷️ GitHub Issue Triage — OpenEnv
 
 An OpenEnv-compliant reinforcement learning environment that trains AI agents to
 triage GitHub issues like an experienced open source maintainer.
@@ -39,12 +41,12 @@ The agent must return an `Action` object for each issue:
 | -------------- | ------------------------------ | --------------------------------------------------- |
 | `labels`       | `List[str]`                    | Labels from the repo's `label_schema`               |
 | `priority`     | `Literal["P0","P1","P2","P3"]` | P0 = security/data-loss … P3 = enhancement          |
-| `is_duplicate` | `bool`                         | Whether the issue duplicates an existing one        |
-| `duplicate_of` | `Optional[str]`                | ID of the duplicate (e.g. `"existing-007"`)         |
-| `needs_info`   | `bool`                         | Whether the reporter needs to provide more info     |
-| `comment`      | `Optional[str]`                | Comment asking for the specific missing information |
-| `is_security`  | `bool`                         | Whether this is a security vulnerability            |
-| `close`        | `bool`                         | Close as invalid / noise / off-topic                |
+| `is_duplicate` | `bool`                         | Whether the issue duplicates an existing one         |
+| `duplicate_of` | `Optional[str]`                | ID of the duplicate (e.g. `"existing-007"`)          |
+| `needs_info`   | `bool`                         | Whether the reporter needs to provide more info      |
+| `comment`      | `Optional[str]`                | Comment asking for the specific missing information  |
+| `is_security`  | `bool`                         | Whether this is a security vulnerability             |
+| `close`        | `bool`                         | Close as invalid / noise / off-topic                 |
 
 ---
 
@@ -54,21 +56,21 @@ At each step the agent receives an `Observation`:
 
 | Field              | Type          | Description                                     |
 | ------------------ | ------------- | ----------------------------------------------- |
-| `task_id`          | `str`         | Current task identifier                         |
-| `repo_name`        | `str`         | Repository name (`acme/payments-sdk`)           |
-| `repo_description` | `str`         | Short description of the repository             |
-| `label_schema`     | `List[str]`   | Valid labels for this repo                      |
-| `current_issue`    | `Issue`       | The issue the agent must triage now             |
-| `existing_issues`  | `List[Issue]` | Pool of 25 existing issues for duplicate lookup |
-| `step_number`      | `int`         | Current step (0-indexed)                        |
-| `max_steps`        | `int`         | Maximum steps in this task                      |
-| `issues_remaining` | `int`         | Issues left in the queue                        |
+| `task_id`          | `str`         | Current task identifier                          |
+| `repo_name`        | `str`         | Repository name (`acme/payments-sdk`)            |
+| `repo_description` | `str`         | Short description of the repository              |
+| `label_schema`     | `List[str]`   | Valid labels for this repo                       |
+| `current_issue`    | `Issue`       | The issue the agent must triage now              |
+| `existing_issues`  | `List[Issue]` | Pool of 25 existing issues for duplicate lookup  |
+| `step_number`      | `int`         | Current step (0-indexed)                         |
+| `max_steps`        | `int`         | Maximum steps in this task                       |
+| `issues_remaining` | `int`         | Issues left in the queue                         |
 
 ---
 
 ## Reward Function
 
-Total reward is clamped to **[-0.40, 1.00]**. Each component:
+Total reward is clamped to **[-0.40, 1.00]** per step. Grader outputs are always **[0.0, 1.0]**.
 
 | Component     | Weight | Calculation                                                                      |
 | ------------- | ------ | -------------------------------------------------------------------------------- |
@@ -78,27 +80,33 @@ Total reward is clamped to **[-0.40, 1.00]**. Each component:
 | **Comment**   | 0.15   | Correct `needs_info` + comment with all required fields → 0.15; partial → scaled |
 | **Security**  | 0.10   | Correct flag → 0.10; **missed security → −0.40 penalty**; false alarm → 0.0      |
 
-> ⚠️ **Missing a real security issue incurs −0.40**, which can make the total reward negative.
+> ⚠️ **Missing a real security issue incurs −0.40**, which can make the step reward negative.
 
 ---
 
 ## Tasks
 
-| Task ID       | Difficulty | Issues | Key Challenge                                               |
-| ------------- | ---------- | ------ | ----------------------------------------------------------- |
-| `task_easy`   | Easy       | 1      | Single clean bug report                                     |
-| `task_medium` | Medium     | 5      | Mixed queue: 2 bugs, 1 feature, 1 duplicate, 1 needs-info   |
-| `task_hard`   | Hard       | 10     | Full inbox including a **disguised security vulnerability** |
+| Task ID               | Difficulty | Issues | Key Challenge                                              |
+| --------------------- | ---------- | ------ | ---------------------------------------------------------- |
+| `task_easy`           | Easy       | 1      | Single clean bug report                                    |
+| `task_medium`         | Medium     | 5      | Mixed queue: bugs, feature, duplicate, needs-info          |
+| `task_hard`           | Hard       | 10     | Full inbox including a **disguised security vulnerability** |
+| `task_release_blocker`| Medium     | 4      | Release blockers: double-billing, Python 3.12 compat       |
+| `task_community`      | Hard       | 6      | Community inbox with disguised **PII data exposure**       |
 
 ---
 
 ## Baseline Scores
 
-| Task ID       | Score |
-| ------------- | ----- |
-| `task_easy`   | 0.82  |
-| `task_medium` | 0.89  |
-| `task_hard`   | 0.83  |
+| Task ID               | Score |
+| --------------------- | ----- |
+| `task_easy`           | TBD   |
+| `task_medium`         | TBD   |
+| `task_hard`           | TBD   |
+| `task_release_blocker`| TBD   |
+| `task_community`      | TBD   |
+
+*Run `inference.py` to fill in baseline scores.*
 
 ---
 
@@ -130,16 +138,15 @@ python inference.py
 
 Required env vars for submission compatibility:
 
-- `API_BASE_URL`
-- `MODEL_NAME`
-- `HF_TOKEN`
-- `LOCAL_IMAGE_NAME` (only used when launching docker-image based envs)
+- `API_BASE_URL` — API endpoint for the LLM (default provided)
+- `MODEL_NAME` — Model identifier (default provided)
+- `HF_TOKEN` — Hugging Face API token (mandatory)
 
-Inference stdout format is strict and emits only these line types:
+Inference stdout format:
 
 - `[START] task=<task_name> env=<benchmark> model=<model_name>`
 - `[STEP] step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>`
-- `[END] success=<true|false> steps=<n> score=<score> rewards=<r1,r2,...,rn>`
+- `[END] success=<true|false> steps=<n> rewards=<r1,r2,...,rn>`
 
 ---
 
@@ -152,27 +159,13 @@ Inference stdout format is strict and emits only these line types:
 | POST   | `/reset`  | Start a new episode       |
 | POST   | `/step`   | Submit a triage action    |
 | GET    | `/state`  | Inspect current env state |
+| GET    | `/web`    | Gradio playground UI      |
 
 ---
 
 ## HuggingFace Space
 
-Set your deployed Space URL in `openenv.yaml` `endpoint` before submission.
-
-## Pre-Submission Validation
-
-Run the included validator script:
-
-```bash
-chmod +x scripts/validate-submission.sh
-./scripts/validate-submission.sh https://your-space.hf.space
-```
-
-This checks:
-
-- `/reset` health response from your Space
-- Docker build success
-- `openenv validate` success
+🔗 **https://raunaqmittal2004-github-issue-env.hf.space**
 
 ---
 

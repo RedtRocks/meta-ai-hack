@@ -35,7 +35,7 @@ LOCAL_IMAGE_NAME: Optional[str] = os.getenv("LOCAL_IMAGE_NAME")  # docker-image 
 
 BENCHMARK: str = os.getenv("OPENENV_BENCHMARK", "github-issue-triage")
 ENV_BASE_URL: str = os.getenv("ENV_BASE_URL", "http://localhost:7860").rstrip("/")
-TASKS: List[str] = ["task_easy", "task_medium", "task_hard"]
+TASKS: List[str] = ["task_easy", "task_medium", "task_hard", "task_release_blocker", "task_community"]
 MAX_STEPS_FALLBACK = 20
 
 SYSTEM_PROMPT = (

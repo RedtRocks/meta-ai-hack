@@ -27,11 +27,23 @@ tasks:
     difficulty: hard
     max_steps: 10
     description: "10 issues including one disguised security vulnerability"
+  - id: task_release_blocker
+    name: "Release blocker triage"
+    difficulty: medium
+    max_steps: 4
+    description: "4 issues to evaluate as potential release blockers — double-billing, Python 3.12 compat, data loss"
+  - id: task_community
+    name: "Community inbox with data exposure"
+    difficulty: hard
+    max_steps: 6
+    description: "6 community reports including a disguised PII data exposure issue"
 observation_space: env.models.Observation
 action_space: env.models.Action
 reward_range: [-0.4, 1.0]
 baseline_scores:
-  task_easy: 0.82
-  task_medium: 0.89
-  task_hard: 0.83
+  task_easy: 0.0
+  task_medium: 0.0
+  task_hard: 0.0
+  task_release_blocker: 0.0
+  task_community: 0.0
 endpoint: "https://raunaqmittal2004-github-issue-env.hf.space"

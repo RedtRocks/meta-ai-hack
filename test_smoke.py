@@ -3,7 +3,7 @@
 import json
 import requests
 
-BASE = "http://localhost:7860"
+BASE = "http://127.0.0.1:7860"
 
 
 def main():
