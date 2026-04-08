@@ -1,0 +1,506 @@
+{
+  "task_easy": {
+    "task_id": "task_easy",
+    "repo_name": "acme/payments-sdk",
+    "repo_description": "Official Python SDK for the Acme Payments API. Supports charges, refunds, subscriptions, and webhook handling.",
+    "difficulty": "easy",
+    "max_steps": 1,
+    "current_issues": [
+      {
+        "id": "triage-easy-001",
+        "title": "Charge.capture() throws AttributeError when called on uncaptured charge",
+        "body": "When I create an uncaptured charge and then try to capture it, the SDK throws an `AttributeError`.\n\n```python\nfrom acme_payments import Client\n\nclient = Client(api_key='sk_test_xxx')\ncharge = client.charges.create(amount=5000, currency='usd', capture=False)\ncharge.capture()  # AttributeError: 'Charge' object has no attribute 'capture'\n```\n\nThe `Charge` model is missing the `capture()` method even though the API supports `POST /v2/charges/{id}/capture`.\n\nSDK version: 2.3.1\nPython: 3.10.12\nOS: macOS 14.2",
+        "author": "api_alice",
+        "created_at": "2025-12-01T10:00:00Z",
+        "tags": ["bug"]
+      }
+    ],
+    "gold": [
+      {
+        "labels": ["bug", "needs-reproduction"],
+        "priority": "P1",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      }
+    ]
+  },
+
+  "task_medium": {
+    "task_id": "task_medium",
+    "repo_name": "acme/payments-sdk",
+    "repo_description": "Official Python SDK for the Acme Payments API. Supports charges, refunds, subscriptions, and webhook handling.",
+    "difficulty": "medium",
+    "max_steps": 5,
+    "current_issues": [
+      {
+        "id": "triage-med-001",
+        "title": "PaymentIntent.confirm() returns stale status after 3DS authentication",
+        "body": "After a customer completes 3D Secure on the frontend, calling `client.payment_intents.confirm(pi_id)` returns `status='requires_action'` instead of `succeeded`. A subsequent `retrieve()` call returns the correct status.\n\nIt seems like `confirm()` is returning a cached response instead of the updated one.\n\n```python\npi = client.payment_intents.confirm('pi_abc123')\nprint(pi.status)  # 'requires_action' -- wrong!\n\npi2 = client.payment_intents.retrieve('pi_abc123')\nprint(pi2.status)  # 'succeeded' -- correct\n```\n\nSDK: 2.3.1, Python 3.11.4, OS: Ubuntu 22.04",
+        "author": "checkout_charlie",
+        "created_at": "2025-12-02T11:00:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-med-002",
+        "title": "Refund.create() ignores `reason` parameter",
+        "body": "The `reason` field passed to `client.refunds.create(charge_id='ch_xxx', reason='duplicate')` is silently dropped. The API receives the request without the reason field. Checked with request logging enabled.\n\n```python\nclient = Client(api_key='sk_test', debug=True)\nrefund = client.refunds.create(charge_id='ch_abc', amount=500, reason='duplicate')\n# DEBUG log shows: POST /v2/refunds body={\"charge_id\": \"ch_abc\", \"amount\": 500}\n# 'reason' is missing from the request body\n```\n\nSDK: 2.3.1, Python 3.10",
+        "author": "refund_rachel",
+        "created_at": "2025-12-03T09:30:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-med-003",
+        "title": "Add support for payment links",
+        "body": "It would be really helpful if the SDK supported the Payment Links API. Currently we have to use raw HTTP calls to create and manage payment links.\n\nDesired API:\n```python\nlink = client.payment_links.create(\n    line_items=[{\"price\": \"price_xxx\", \"quantity\": 1}],\n    after_completion={\"type\": \"redirect\", \"url\": \"https://example.com/thanks\"}\n)\nprint(link.url)  # https://pay.acme.dev/links/xxx\n```\n\nThis is documented in the REST API at https://docs.acme.dev/api/payment-links but has no SDK wrapper.",
+        "author": "product_pete",
+        "created_at": "2025-12-04T14:00:00Z",
+        "tags": ["enhancement"]
+      },
+      {
+        "id": "triage-med-004",
+        "title": "Webhook signature check fails intermittently since Python upgrade",
+        "body": "We recently moved from Python 3.10 to 3.11.5 and now about 30% of our incoming webhook events fail signature verification. The `verify_signature` function returns False randomly even though the signing secret hasn't changed.\n\nWe're on SDK 2.3.1. The issue is 100% reproducible: the same payload verifies on 3.10 but not on 3.11.\n\nThis is blocking our upgrade to Python 3.11.",
+        "author": "migration_mike",
+        "created_at": "2025-12-05T16:20:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-med-005",
+        "title": "Charge creation fails with vague error",
+        "body": "I'm trying to create a charge but I get an error. Here's my code:\n\n```python\nclient.charges.create(amount=1000, currency='usd')\n```\n\nIt just says \"error\" and nothing else. Please help.",
+        "author": "confused_carl",
+        "created_at": "2025-12-06T08:00:00Z",
+        "tags": []
+      }
+    ],
+    "gold": [
+      {
+        "labels": ["bug"],
+        "priority": "P1",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug"],
+        "priority": "P2",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["enhancement"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug", "duplicate"],
+        "priority": "P1",
+        "is_duplicate": true,
+        "duplicate_of": "existing-007",
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug", "needs-reproduction"],
+        "priority": "P2",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": true,
+        "required_info_fields": ["python version", "sdk version", "error traceback"],
+        "is_security": false,
+        "close": false
+      }
+    ]
+  },
+
+  "task_hard": {
+    "task_id": "task_hard",
+    "repo_name": "acme/payments-sdk",
+    "repo_description": "Official Python SDK for the Acme Payments API. Supports charges, refunds, subscriptions, and webhook handling.",
+    "difficulty": "hard",
+    "max_steps": 10,
+    "current_issues": [
+      {
+        "id": "triage-hard-001",
+        "title": "Currency conversion rounding error on JPY charges",
+        "body": "When creating charges in JPY (a zero-decimal currency), the SDK still divides the amount by 100, causing incorrect charge amounts. For example, passing `amount=1000` should create a ¥1000 charge, but the API receives `amount=10`.\n\n```python\nclient.charges.create(amount=1000, currency='jpy')\n# API log shows: POST /v2/charges {\"amount\": 10, \"currency\": \"jpy\"}\n```\n\nSDK: 2.3.1, Python 3.11.4",
+        "author": "tokyo_dev",
+        "created_at": "2025-12-07T03:00:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-hard-002",
+        "title": "client.charges.list() returns wrong type hints",
+        "body": "The return type of `client.charges.list()` is annotated as `List[Charge]` but it actually returns a `PaginatedList[Charge]` object. This causes mypy errors in our CI pipeline:\n\n```\nerror: \"PaginatedList[Charge]\" has no attribute \"__iter__\"  [attr-defined]\n```\n\nThe `PaginatedList` class is missing `__iter__` and `__len__` protocol methods.\n\nSDK: 2.3.1, Python 3.11, mypy 1.7.0",
+        "author": "typing_tania",
+        "created_at": "2025-12-08T10:15:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-hard-003",
+        "title": "Race condition in concurrent charge creation",
+        "body": "When creating multiple charges concurrently using `asyncio.gather()`, some charges end up with the wrong customer ID. It seems like the shared HTTP session is causing request data to leak between coroutines.\n\n```python\nasync def create_charge(customer_id):\n    return await async_client.charges.create(\n        amount=1000, currency='usd', customer=customer_id\n    )\n\nresults = await asyncio.gather(\n    create_charge('cus_AAA'),\n    create_charge('cus_BBB'),\n    create_charge('cus_CCC'),\n)\n# Sometimes cus_BBB's charge is assigned to cus_AAA\n```\n\nSDK: 2.3.1, Python 3.11.6",
+        "author": "concurrency_chris",
+        "created_at": "2025-12-09T14:30:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-hard-004",
+        "title": "Add automatic pagination to all list endpoints",
+        "body": "Currently, paginating through large collections requires manual cursor management. It would be much nicer to have an auto-paginating iterator:\n\n```python\n# Current (tedious):\ncharges = []\nstarting_after = None\nwhile True:\n    page = client.charges.list(limit=100, starting_after=starting_after)\n    charges.extend(page.data)\n    if not page.has_more:\n        break\n    starting_after = page.data[-1].id\n\n# Desired:\nfor charge in client.charges.auto_paging_iter():\n    process(charge)\n```\n\nThis is a standard feature in most modern API SDKs.",
+        "author": "dx_advocate",
+        "created_at": "2025-12-10T09:00:00Z",
+        "tags": ["enhancement"]
+      },
+      {
+        "id": "triage-hard-005",
+        "title": "Support for configurable webhook tolerance window",
+        "body": "The SDK currently hardcodes a 300-second tolerance for webhook timestamp verification. We need to increase this for our batch processing pipeline where webhooks can be delayed by up to 10 minutes.\n\nProposed API:\n```python\nverify_signature(payload, sig, secret, tolerance=600)  # 10 minutes\n```\n\nThe current code has `MAX_TOLERANCE = 300` hardcoded in `webhooks.py` line 42.",
+        "author": "batch_betty",
+        "created_at": "2025-12-11T11:45:00Z",
+        "tags": ["enhancement"]
+      },
+      {
+        "id": "triage-hard-006",
+        "title": "Quick-start guide uses deprecated async patterns",
+        "body": "The quick-start guide at https://docs.acme.dev/quickstart still shows the old async pattern:\n\n```python\n# Deprecated (shown in docs):\nfrom acme_payments import AsyncClient\nclient = AsyncClient(api_key='sk_test')\nresult = await client.charges.create_async(amount=1000, currency='usd')\n\n# Correct (current SDK):\nfrom acme_payments.aio import Client\nclient = Client(api_key='sk_test')\nresult = await client.charges.create(amount=1000, currency='usd')\n```\n\nThe `create_async` methods were removed in 2.2.0. New users following the guide will hit `AttributeError` immediately.",
+        "author": "doc_hunter",
+        "created_at": "2025-12-12T08:30:00Z",
+        "tags": ["documentation"]
+      },
+      {
+        "id": "triage-hard-007",
+        "title": "Signature verification not working after server migration",
+        "body": "After migrating our webhook handler from one server to another, the `acme_payments.webhooks.verify_signature()` method fails for all incoming events. Both servers run the same SDK version (2.3.1). Old server used Python 3.10, new server uses Python 3.11.7.\n\nThe webhook secret is the same, payloads are identical. We confirmed by running the old server in parallel — same payload verifies on old server, fails on new.\n\nNew server: Debian 12, Python 3.11.7\nOld server: Ubuntu 20.04, Python 3.10.9",
+        "author": "ops_omar",
+        "created_at": "2025-12-13T19:00:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-hard-008",
+        "title": "Error when creating charge without specifying source",
+        "body": "I get an error when trying to create a charge. Not sure what's wrong.\n\n```python\nclient.charges.create(amount=2000, currency='usd')\n```\n\nError message just says the request failed.",
+        "author": "beginner_bob",
+        "created_at": "2025-12-14T12:00:00Z",
+        "tags": []
+      },
+      {
+        "id": "triage-hard-009",
+        "title": "Love this SDK!",
+        "body": "Just wanted to say this is great software! We've been using it for 6 months and it's been rock solid. The documentation is clear and the API design is intuitive. Keep up the great work team! 🎉👏\n\nOur whole payments team loves it.",
+        "author": "happy_user",
+        "created_at": "2025-12-15T15:30:00Z",
+        "tags": []
+      },
+      {
+        "id": "triage-hard-010",
+        "title": "API should return 401 for expired tokens instead of 200",
+        "body": "When I pass an expired JWT to POST /v1/charges, the API returns 200 and processes the charge anyway. It would be better UX to return 401.\n\nSteps:\n1) Generate a JWT\n2) Wait for it to expire\n3) POST /v1/charges with the expired token\n4) Charge goes through despite expired auth.\n\nThis means charges can be created with invalid credentials. The API should validate token expiry before processing any transaction.",
+        "author": "ux_ursula",
+        "created_at": "2025-12-16T20:00:00Z",
+        "tags": ["enhancement"]
+      }
+    ],
+    "gold": [
+      {
+        "labels": ["bug"],
+        "priority": "P1",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug"],
+        "priority": "P2",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug"],
+        "priority": "P1",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["enhancement"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["enhancement"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["documentation"],
+        "priority": "P2",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug", "duplicate"],
+        "priority": "P1",
+        "is_duplicate": true,
+        "duplicate_of": "existing-019",
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug", "needs-reproduction"],
+        "priority": "P2",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": true,
+        "required_info_fields": ["os", "sdk version"],
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["wontfix"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": true
+      },
+      {
+        "labels": ["security"],
+        "priority": "P0",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": true,
+        "close": false
+      }
+    ]
+  },
+
+  "task_release_blocker": {
+    "task_id": "task_release_blocker",
+    "repo_name": "acme/payments-sdk",
+    "repo_description": "Official Python SDK for the Acme Payments API. Supports charges, refunds, subscriptions, and webhook handling.",
+    "difficulty": "medium",
+    "max_steps": 4,
+    "current_issues": [
+      {
+        "id": "triage-rb-001",
+        "title": "URGENT: Charges being created twice — customers double-billed",
+        "body": "We are seeing a critical production issue where calling `client.charges.create()` is sometimes resulting in **two charges being created** for a single API call. Our Stripe dashboard shows duplicate charge IDs with identical amounts and timestamps.\n\nWe discovered this when a customer complained about being charged twice for a $200 subscription renewal.\n\n```python\nclient = Client(api_key='sk_live_xxx')\ncharge = client.charges.create(\n    amount=20000,\n    currency='usd',\n    customer='cus_abc123',\n    idempotency_key='order_789'\n)\n# Two charge objects created: ch_AAA and ch_BBB, both $200\n```\n\nThe `idempotency_key` parameter appears to be silently dropped from the request headers — it is never forwarded to the API. This means retries on network errors create duplicate charges.\n\nImpact: Financial loss for customers, severe trust issue.\nSDK: 2.3.1, Python 3.11, Production environment.",
+        "author": "cto_carol",
+        "created_at": "2025-12-17T07:45:00Z",
+        "tags": ["bug", "production", "urgent"]
+      },
+      {
+        "id": "triage-rb-002",
+        "title": "SDK crashes on Python 3.12 — SyntaxError in webhooks.py",
+        "body": "After upgrading to Python 3.12, the entire SDK fails to import. The issue is a `SyntaxError` in `webhooks.py` caused by use of the deprecated f-string syntax that was removed in 3.12.\n\n```\n$ python -c 'import acme_payments'\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \".../acme_payments/__init__.py\", line 3, in <module>\n    from .webhooks import verify_signature\n  File \".../acme_payments/webhooks.py\", line 88\n    debug_str = f'{f\"inner {val}\"}'\n    ^\nSyntaxError: f-string: cannot use starred expression here\n```\n\nThis is a **release blocker** — no Python 3.12 user can use the SDK at all.\n\nPython 3.12.0, macOS 14.3, SDK 2.3.1",
+        "author": "upgrade_ulrich",
+        "created_at": "2025-12-17T09:10:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-rb-003",
+        "title": "Consider adding SDK version to User-Agent header",
+        "body": "Would be nice if the SDK included its version in the `User-Agent` request header so Acme's API logs can track which SDK version customers are using.\n\nCurrently:\n```\nUser-Agent: python-requests/2.31.0\n```\n\nProposed:\n```\nUser-Agent: acme-python-sdk/2.3.1 python-requests/2.31.0 Python/3.11.4\n```\n\nThis is a common pattern in Stripe, Twilio, and other SDKs. Would help with support and deprecation tracking.",
+        "author": "dx_dev",
+        "created_at": "2025-12-17T11:00:00Z",
+        "tags": ["enhancement"]
+      },
+      {
+        "id": "triage-rb-004",
+        "title": "Subscription renewal fails but no clear error message",
+        "body": "Our subscription renewal job is failing and I can't tell why. The SDK raises an exception but the message is just 'Request failed'.\n\n```python\ntry:\n    client.subscriptions.renew('sub_xyz')\nexcept Exception as e:\n    print(e)  # 'Request failed'\n```\n\nIs this a rate limit? A network error? An invalid subscription ID? I can't tell.",
+        "author": "confused_dev",
+        "created_at": "2025-12-17T14:30:00Z",
+        "tags": []
+      }
+    ],
+    "gold": [
+      {
+        "labels": ["bug"],
+        "priority": "P0",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug"],
+        "priority": "P0",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["enhancement"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug", "needs-reproduction"],
+        "priority": "P2",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": true,
+        "required_info_fields": ["sdk version", "python version", "full error traceback", "subscription id"],
+        "is_security": false,
+        "close": false
+      }
+    ]
+  },
+
+  "task_community": {
+    "task_id": "task_community",
+    "repo_name": "acme/payments-sdk",
+    "repo_description": "Official Python SDK for the Acme Payments API. Supports charges, refunds, subscriptions, and webhook handling.",
+    "difficulty": "hard",
+    "max_steps": 6,
+    "current_issues": [
+      {
+        "id": "triage-com-001",
+        "title": "client.refunds.list() does not support filtering by date range",
+        "body": "The `client.refunds.list()` method does not support `created_after` and `created_before` parameters, unlike the underlying REST API which supports them. This forces us to fetch all refunds and filter client-side, which is very slow for high-volume accounts.\n\nDesired:\n```python\nrefunds = client.refunds.list(\n    created_after='2025-01-01',\n    created_before='2025-01-31'\n)\n```\n\nCurrent API docs confirm these filters exist: https://docs.acme.dev/api/refunds#list",
+        "author": "data_diana",
+        "created_at": "2025-12-18T08:00:00Z",
+        "tags": ["enhancement"]
+      },
+      {
+        "id": "triage-com-002",
+        "title": "TypeError when passing Decimal amount instead of int",
+        "body": "When passing a `decimal.Decimal` value as the `amount` parameter, the SDK raises a `TypeError` during JSON serialisation instead of converting it to an int.\n\n```python\nfrom decimal import Decimal\nclient.charges.create(amount=Decimal('2000'), currency='usd')\n# TypeError: Object of type Decimal is not JSON serializable\n```\n\nThis is a common pattern when working with financial amounts in Python. The SDK should either accept `Decimal` or raise a clearer `ValueError` with guidance.\n\nSDK 2.3.1, Python 3.11",
+        "author": "finance_fred",
+        "created_at": "2025-12-18T09:45:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-com-003",
+        "title": "debug=True leaks full customer PII and raw card data into application logs",
+        "body": "I was profiling our integration and enabled `debug=True` on the client for a few hours in staging. I noticed that the debug output contains **complete, unredacted HTTP request and response bodies**, including:\n\n- Full card numbers from tokenisation responses (raw PANs visible in log)\n- Customer email, name, address from billing details\n- Bank account numbers from ACH payment method objects\n\n```python\nclient = Client(api_key='sk_test_xxx', debug=True)\nclient.payment_methods.create(\n    type='card',\n    card={'number': '4242424242424242', 'exp_month': 12, 'exp_year': 2026, 'cvc': '123'}\n)\n# DEBUG: --> POST /v2/payment_methods\n# DEBUG: Body: {\"type\": \"card\", \"card\": {\"number\": \"4242424242424242\", \"exp_month\": 12, \"exp_year\": 2026, \"cvc\": \"123\"}}\n# DEBUG: <-- 200 OK\n# DEBUG: Response: {\"id\": \"pm_xxx\", \"card\": {\"last4\": \"4242\", \"number\": \"4242424242424242\", ...}}\n```\n\nAny developer who accidentally enables `debug=True` in production will log full **PAN data and CVC codes** into their application logs. This violates PCI-DSS compliance requirements that mandate card data must **never appear in logs**.\n\nThis is a **serious security vulnerability**. The fix should mask card numbers (show only last 4), redact CVCs entirely, and sanitise all PII fields (email, name, address) in debug output.\n\nSDK 2.3.1, found during routine security review.",
+        "author": "security_sam",
+        "created_at": "2025-12-18T11:30:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-com-004",
+        "title": "Add async context manager support to Client",
+        "body": "The async client doesn't support `async with` syntax for automatic session cleanup. This means users have to manually call `await client.close()` or risk leaking HTTP connections.\n\nDesired pattern:\n```python\nasync with acme_payments.aio.Client(api_key='sk_test') as client:\n    charge = await client.charges.create(amount=1000, currency='usd')\n# Session automatically closed here\n```\n\nThis is the standard pattern in aiohttp and httpx-based clients.",
+        "author": "async_alice",
+        "created_at": "2025-12-18T13:00:00Z",
+        "tags": ["enhancement"]
+      },
+      {
+        "id": "triage-com-005",
+        "title": "Duplicate of existing webhook signature issue",
+        "body": "Same problem as reported by others — webhook signature verification fails after migrating to a new server. SDK 2.3.1, Python 3.11, same signing secret. Verifies fine on old server (Python 3.10).\n\nPlease fix this, it's blocking our production deploy.",
+        "author": "another_webhook_user",
+        "created_at": "2025-12-18T15:00:00Z",
+        "tags": ["bug"]
+      },
+      {
+        "id": "triage-com-006",
+        "title": "Great library, small docs typo",
+        "body": "Love the SDK! Just wanted to flag a small typo in the README — in the Authentication section it says 'initalize' instead of 'initialize'.\n\nFeel free to close this if you have a separate docs repo.",
+        "author": "helpful_harry",
+        "created_at": "2025-12-18T17:30:00Z",
+        "tags": ["documentation"]
+      }
+    ],
+    "gold": [
+      {
+        "labels": ["enhancement"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug"],
+        "priority": "P2",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["security"],
+        "priority": "P0",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": true,
+        "close": false
+      },
+      {
+        "labels": ["enhancement"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["bug", "duplicate"],
+        "priority": "P1",
+        "is_duplicate": true,
+        "duplicate_of": "existing-019",
+        "needs_info": false,
+        "is_security": false,
+        "close": false
+      },
+      {
+        "labels": ["documentation"],
+        "priority": "P3",
+        "is_duplicate": false,
+        "duplicate_of": null,
+        "needs_info": false,
+        "is_security": false,
+        "close": true
+      }
+    ]
+  }
+}

@@ -100,11 +100,11 @@ Total reward is clamped to **[-0.40, 1.00]** per step. Grader outputs are always
 
 | Task ID               | Score |
 | --------------------- | ----- |
-| `task_easy`           | TBD   |
-| `task_medium`         | TBD   |
-| `task_hard`           | TBD   |
-| `task_release_blocker`| TBD   |
-| `task_community`      | TBD   |
+| `task_easy`           | 0.64  |
+| `task_medium`         | 0.91  |
+| `task_hard`           | 0.91  |
+| `task_release_blocker`| 0.88  |
+| `task_community`      | 0.91  |
 
 *Run `inference.py` to fill in baseline scores.*
 

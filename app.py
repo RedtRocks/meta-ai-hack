@@ -42,19 +42,9 @@ class ResetRequest(BaseModel):
     task_id: str | None = None
 
 
-@api.get("/")
-def root():
-    return {
-        "name": "github-issue-triage",
-        "version": "1.0.0",
-        "description": "Train agents to triage GitHub issues like an experienced open source maintainer.",
-        "endpoints": [
-            {"method": "POST", "path": "/reset", "description": "Start a new episode"},
-            {"method": "POST", "path": "/step", "description": "Submit an action"},
-            {"method": "GET", "path": "/state", "description": "Get current env state"},
-            {"method": "GET", "path": "/health", "description": "Health check"},
-        ],
-    }
+from fastapi.responses import RedirectResponse
+
+
 
 
 @api.get("/health")
@@ -100,7 +90,13 @@ def get_state():
 # Gradio Playground UI
 # ═══════════════════════════════════════════════════════════════════════════
 
-TASK_CHOICES = list(env.tasks.keys())
+TASK_CHOICES = [
+    ("🟢 Easy — Single Bug Report (task_easy)", "task_easy"),
+    ("🟡 Medium — Mixed Inbox, 5 Issues (task_medium)", "task_medium"),
+    ("🔴 Hard — Full Inbox + Security Threat (task_hard)", "task_hard"),
+    ("🚨 Medium — Release Blockers (task_release_blocker)", "task_release_blocker"),
+    ("☠️ Hard — Community Inbox + PII Exposure (task_community)", "task_community"),
+]
 LABEL_CHOICES = env.label_schema["labels"]
 PRIORITY_CHOICES = ["P0", "P1", "P2", "P3"]
 
@@ -351,7 +347,7 @@ def _format_reward_html(reward_dict: dict | None) -> str:
 def _format_step_log(history: list) -> str:
     """Format the step history as a monospace log."""
     if not history:
-        return '<div class="step-log"><span style="color:#E2E8F0;">No steps taken yet. Reset the environment to start.</span></div>'
+        return f'<div class="step-log">Episode started. Submit a triage action to see the step logs.</div>'
 
     lines = []
     for i, entry in enumerate(history):
@@ -394,7 +390,7 @@ def do_reset(task_id: str):
     )
 
 
-def do_step(labels_str, priority, is_duplicate, duplicate_of, needs_info, comment, is_security, close):
+def do_step(labels_list, priority, is_duplicate, duplicate_of, needs_info, comment, is_security, close):
     global _current_obs, _step_history, _last_reward
 
     if env._state is None or env._state.get("done"):
@@ -406,8 +402,8 @@ def do_step(labels_str, priority, is_duplicate, duplicate_of, needs_info, commen
             "{}",
         )
 
-    # Parse labels
-    labels = [l.strip() for l in labels_str.split(",") if l.strip()] if labels_str else []
+    # labels_list comes directly from CheckboxGroup as a Python list
+    labels = labels_list if labels_list else []
 
     action = Action(
         labels=labels,
@@ -536,18 +532,19 @@ with gr.Blocks(
                     with gr.Row():
                         task_dd = gr.Dropdown(
                             choices=TASK_CHOICES,
-                            value=TASK_CHOICES[0],
+                            value="task_easy",
                             label="Task",
                             scale=2,
                         )
                         reset_btn = gr.Button("🔄 Reset", variant="secondary", scale=1, elem_classes=["reset-btn"])
 
+                    gr.Markdown("**🏷️ Labels** — select all that apply:")
+                    labels_input = gr.CheckboxGroup(
+                        choices=LABEL_CHOICES,
+                        value=[],
+                        label="Labels",
+                    )
                     with gr.Row():
-                        labels_input = gr.Textbox(
-                            label="Labels (comma-separated)",
-                            placeholder="bug, needs-reproduction",
-                            scale=3,
-                        )
                         priority_dd = gr.Dropdown(
                             choices=PRIORITY_CHOICES,
                             value="P2",
@@ -592,9 +589,9 @@ with gr.Blocks(
 
             # ── Wire events ──────────────────────────────────────
             reset_btn.click(
-                fn=do_reset,
+                fn=lambda task_id: (*do_reset(task_id), []),
                 inputs=[task_dd],
-                outputs=[issue_html, reward_html, step_log_html, status_md, raw_obs_json],
+                outputs=[issue_html, reward_html, step_log_html, status_md, raw_obs_json, labels_input],
             )
 
             submit_btn.click(
@@ -722,7 +719,7 @@ print(f"Done: {result['done']}")
             gr.Markdown("### Raw JSON Interface")
             with gr.Row():
                 with gr.Column():
-                    raw_task_dd = gr.Dropdown(choices=TASK_CHOICES, value=TASK_CHOICES[0], label="Task")
+                    raw_task_dd = gr.Dropdown(choices=TASK_CHOICES, value="task_easy", label="Task")
                     raw_reset_btn = gr.Button("Reset", variant="secondary")
                     raw_state_btn = gr.Button("Get State", variant="secondary")
                 with gr.Column(scale=2):
@@ -740,12 +737,4 @@ print(f"Done: {result['done']}")
             )
 
 
-# ── Mount Gradio on FastAPI ──────────────────────────────────────────────
-
-app = gr.mount_gradio_app(api, demo, path="/web")
-
-# Make Gradio the default page
-@api.get("/ui", include_in_schema=False)
-def redirect_to_web():
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/web")
+app = gr.mount_gradio_app(api, demo, path="/")

@@ -41,9 +41,9 @@ observation_space: env.models.Observation
 action_space: env.models.Action
 reward_range: [-0.4, 1.0]
 baseline_scores:
-  task_easy: 0.0
-  task_medium: 0.0
-  task_hard: 0.0
-  task_release_blocker: 0.0
-  task_community: 0.0
+  task_easy: 0.64
+  task_medium: 0.91
+  task_hard: 0.91
+  task_release_blocker: 0.88
+  task_community: 0.91
 endpoint: "https://raunaqmittal2004-github-issue-env.hf.space"

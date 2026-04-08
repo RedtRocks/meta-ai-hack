@@ -129,7 +129,7 @@ celerybeat.pid
 .venv
 # env/  (Commenting out because env/ is our package directory, not a venv)
 venv/
-ENV/
+# ENV/
 env.bak/
 venv.bak/
 
@@ -191,3 +191,5 @@ test_smoke.py
 .git/
 .gitignore
 .agents/
+scores.txt
+clean_scores.txt
