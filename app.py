@@ -107,41 +107,37 @@ PRIORITY_CHOICES = ["P0", "P1", "P2", "P3"]
 # Custom CSS for a bold, premium dark theme
 CUSTOM_CSS = """
 /* ── Global overrides ─────────────────────────────────────────── */
+body, .gradio-container {
+    background-color: #333333 !important;
+    color: #E2E8F0 !important;
+}
+.gradio-container * {
+    border-color: #666666 !important;
+}
 .gradio-container {
     max-width: 1400px !important;
     margin: 0 auto !important;
-    font-family: 'Inter', 'SF Pro Display', -apple-system, sans-serif !important;
+    font-family: 'Poppins', 'SF Pro Display', -apple-system, sans-serif !important;
 }
 
 /* ── Hero header ──────────────────────────────────────────────── */
 .hero-header {
-    background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a1e2e 100%);
-    border: 1px solid #30363d;
+    background: #333333;
+    border: 1px solid #666666;
     border-radius: 16px;
     padding: 32px 40px;
     margin-bottom: 24px;
     position: relative;
     overflow: hidden;
 }
-.hero-header::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: radial-gradient(ellipse at 20% 50%, rgba(88, 166, 255, 0.08) 0%, transparent 60%),
-                radial-gradient(ellipse at 80% 20%, rgba(163, 113, 247, 0.06) 0%, transparent 50%);
-    pointer-events: none;
-}
 .hero-header h1 {
     font-size: 28px !important;
     font-weight: 700 !important;
-    background: linear-gradient(135deg, #58a6ff, #a371f7, #f778ba);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #4183C4 !important;
     margin: 0 0 8px 0 !important;
 }
 .hero-header p {
-    color: #8b949e !important;
+    color: #E2E8F0 !important;
     font-size: 14px !important;
     margin: 0 !important;
     line-height: 1.5 !important;
@@ -149,26 +145,26 @@ CUSTOM_CSS = """
 
 /* ── Issue card styling ───────────────────────────────────────── */
 .issue-card {
-    background: linear-gradient(145deg, #0d1117, #161b22);
-    border: 1px solid #30363d;
-    border-left: 4px solid #58a6ff;
+    background: #333333;
+    border: 1px solid #666666;
+    border-left: 4px solid #4183C4;
     border-radius: 12px;
     padding: 24px;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Poppins', sans-serif;
 }
 .issue-card h3 {
-    color: #f0f6fc !important;
+    color: #E2E8F0 !important;
     font-size: 18px !important;
     font-weight: 600 !important;
     margin: 0 0 12px 0 !important;
 }
 .issue-card .meta {
-    color: #8b949e;
+    color: #E2E8F0;
     font-size: 12px;
     margin-bottom: 16px;
 }
 .issue-card .body-text {
-    color: #c9d1d9;
+    color: #E2E8F0;
     font-size: 14px;
     line-height: 1.6;
     white-space: pre-wrap;
@@ -176,8 +172,8 @@ CUSTOM_CSS = """
 
 /* ── Reward display ───────────────────────────────────────────── */
 .reward-panel {
-    background: linear-gradient(145deg, #0d1117, #161b22);
-    border: 1px solid #30363d;
+    background: #333333;
+    border: 1px solid #666666;
     border-radius: 12px;
     padding: 20px;
 }
@@ -186,93 +182,72 @@ CUSTOM_CSS = """
     font-weight: 800 !important;
     text-align: center;
     padding: 12px;
-}
-.reward-high { color: #3fb950 !important; }
-.reward-mid { color: #d29922 !important; }
-.reward-low { color: #f85149 !important; }
-
-/* ── Status badges ────────────────────────────────────────────── */
-.status-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.badge-active {
-    background: rgba(63, 185, 80, 0.15);
-    color: #3fb950;
-    border: 1px solid rgba(63, 185, 80, 0.3);
-}
-.badge-done {
-    background: rgba(136, 136, 136, 0.15);
-    color: #8b949e;
-    border: 1px solid rgba(136, 136, 136, 0.3);
+    color: #4183C4 !important;
 }
 
 /* ── Action buttons ───────────────────────────────────────────── */
 .primary-btn {
-    background: linear-gradient(135deg, #238636, #2ea043) !important;
-    border: 1px solid #2ea043 !important;
+    background: #4183C4 !important;
+    border: 1px solid #4183C4 !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
-    transition: all 0.2s ease !important;
+    color: #333333 !important;
 }
 .primary-btn:hover {
-    background: linear-gradient(135deg, #2ea043, #3fb950) !important;
-    box-shadow: 0 0 20px rgba(46, 160, 67, 0.3) !important;
+    opacity: 0.9 !important;
 }
 .reset-btn {
-    background: linear-gradient(135deg, #1f6feb, #388bfd) !important;
-    border: 1px solid #388bfd !important;
+    background: #666666 !important;
+    border: 1px solid #666666 !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
+    color: #E2E8F0 !important;
 }
 
 /* ── Step log ─────────────────────────────────────────────────── */
 .step-log {
-    background: #0d1117;
-    border: 1px solid #21262d;
+    background: #333333;
+    border: 1px solid #666666;
     border-radius: 8px;
     padding: 16px;
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
     font-size: 12px;
     max-height: 400px;
     overflow-y: auto;
+    color: #E2E8F0;
 }
 
 /* ── Code block in issue ──────────────────────────────────────── */
 .issue-card pre, .issue-card code {
-    background: #161b22 !important;
-    border: 1px solid #30363d;
+    background: #666666 !important;
+    border: 1px solid #E2E8F0;
     border-radius: 6px;
     padding: 2px 6px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 13px;
+    color: #E2E8F0 !important;
 }
 
 /* ── Sidebar info panel ───────────────────────────────────────── */
 .info-panel {
-    background: linear-gradient(145deg, #0d1117, #161b22);
-    border: 1px solid #30363d;
+    background: #333333;
+    border: 1px solid #666666;
     border-radius: 12px;
     padding: 20px;
 }
 .info-panel h4 {
-    color: #58a6ff !important;
+    color: #4183C4 !important;
     font-size: 13px !important;
     text-transform: uppercase !important;
     letter-spacing: 1px !important;
     margin: 0 0 12px 0 !important;
 }
 .info-panel code {
-    background: #161b22;
-    border: 1px solid #30363d;
+    background: #666666;
+    border: 1px solid #E2E8F0;
     border-radius: 4px;
     padding: 2px 6px;
-    color: #f0883e;
+    color: #E2E8F0;
     font-size: 12px;
 }
 """
@@ -285,14 +260,14 @@ def _format_issue_html(obs_dict: dict | None) -> str:
 
     issue = obs_dict.get("current_issue", {})
     if issue.get("id") == "done":
-        return '<div class="issue-card" style="border-left-color: #3fb950;"><h3>✅ Episode Complete</h3><p class="body-text">All issues have been triaged. Click <strong>Reset</strong> to start a new episode.</p></div>'
+        return '<div class="issue-card" style="border-left-color: #4183C4;"><h3>✅ Episode Complete</h3><p class="body-text">All issues have been triaged. Click <strong>Reset</strong> to start a new episode.</p></div>'
 
     title = issue.get("title", "")
     body = issue.get("body", "").replace("<", "&lt;").replace(">", "&gt;")
     author = issue.get("author", "unknown")
     created = issue.get("created_at", "")[:10]
     tags = issue.get("tags", [])
-    tag_html = "".join(f'<span style="background:#21262d;color:#8b949e;padding:2px 8px;border-radius:12px;font-size:11px;margin-right:4px;">{t}</span>' for t in tags)
+    tag_html = "".join(f'<span style="background:#666666;color:#E2E8F0;padding:2px 8px;border-radius:12px;font-size:11px;margin-right:4px;">{t}</span>' for t in tags)
 
     step = obs_dict.get("step_number", 0)
     remaining = obs_dict.get("issues_remaining", 0)
@@ -300,20 +275,20 @@ def _format_issue_html(obs_dict: dict | None) -> str:
 
     # Convert markdown code blocks to pre tags
     import re
-    body = re.sub(r'```(\w*)\n(.*?)```', r'<pre style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:12px;overflow-x:auto;color:#c9d1d9;font-size:12px;">\2</pre>', body, flags=re.DOTALL)
-    body = re.sub(r'`([^`]+)`', r'<code style="background:#161b22;border:1px solid #30363d;border-radius:4px;padding:1px 5px;color:#f0883e;font-size:12px;">\1</code>', body)
+    body = re.sub(r'```(\w*)\n(.*?)```', r'<pre style="background:#666666;border:1px solid #E2E8F0;border-radius:6px;padding:12px;overflow-x:auto;color:#E2E8F0;font-size:12px;">\2</pre>', body, flags=re.DOTALL)
+    body = re.sub(r'`([^`]+)`', r'<code style="background:#666666;border:1px solid #E2E8F0;border-radius:4px;padding:1px 5px;color:#E2E8F0;font-size:12px;">\1</code>', body)
     body = body.replace("\n", "<br>")
 
     return f"""
     <div class="issue-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <div style="display:flex;align-items:center;gap:8px;">
-                <span style="color:#3fb950;font-size:18px;">●</span>
-                <span style="color:#8b949e;font-size:12px;">Issue #{issue.get('id', '')}</span>
+                <span style="color:#4183C4;font-size:18px;">●</span>
+                <span style="color:#E2E8F0;font-size:12px;">Issue #{issue.get('id', '')}</span>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
-                <span style="background:rgba(88,166,255,0.15);color:#58a6ff;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">Step {step + 1}/{max_steps}</span>
-                <span style="background:rgba(163,113,247,0.15);color:#a371f7;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">{remaining} remaining</span>
+                <span style="background:transparent;color:#4183C4;border:1px solid #4183C4;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">Step {step + 1}/{max_steps}</span>
+                <span style="background:transparent;color:#E2E8F0;border:1px solid #E2E8F0;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">{remaining} remaining</span>
             </div>
         </div>
         <h3 style="margin:0 0 8px 0 !important;">{title}</h3>
@@ -330,7 +305,7 @@ def _format_issue_html(obs_dict: dict | None) -> str:
 def _format_reward_html(reward_dict: dict | None) -> str:
     """Render a reward breakdown as styled HTML."""
     if reward_dict is None:
-        return '<div class="reward-panel"><p style="text-align:center;color:#8b949e;">Submit an action to see the reward breakdown</p></div>'
+        return '<div class="reward-panel"><p style="text-align:center;color:#E2E8F0;">Submit an action to see the reward breakdown</p></div>'
 
     total = reward_dict.get("total", 0)
     if total >= 0.7:
@@ -341,11 +316,11 @@ def _format_reward_html(reward_dict: dict | None) -> str:
         color_class = "reward-low"
 
     components = [
-        ("🏷️ Labels", reward_dict.get("label_score", 0), 0.30, "#58a6ff"),
-        ("🔗 Duplicate", reward_dict.get("duplicate_score", 0), 0.25, "#a371f7"),
-        ("⚡ Priority", reward_dict.get("priority_score", 0), 0.20, "#d29922"),
-        ("💬 Comment", reward_dict.get("comment_score", 0), 0.15, "#3fb950"),
-        ("🔒 Security", reward_dict.get("security_score", 0), 0.10, "#f85149"),
+        ("🏷️ Labels", reward_dict.get("label_score", 0), 0.30, "#4183C4"),
+        ("🔗 Duplicate", reward_dict.get("duplicate_score", 0), 0.25, "#4183C4"),
+        ("⚡ Priority", reward_dict.get("priority_score", 0), 0.20, "#4183C4"),
+        ("💬 Comment", reward_dict.get("comment_score", 0), 0.15, "#4183C4"),
+        ("🔒 Security", reward_dict.get("security_score", 0), 0.10, "#4183C4"),
     ]
 
     bars = ""
@@ -355,10 +330,10 @@ def _format_reward_html(reward_dict: dict | None) -> str:
         bars += f"""
         <div style="margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                <span style="color:#c9d1d9;font-size:13px;">{name}</span>
+                <span style="color:#E2E8F0;font-size:13px;">{name}</span>
                 <span style="color:{color};font-weight:600;font-size:13px;">{sign}{score:.3f} / {max_val:.2f}</span>
             </div>
-            <div style="background:#21262d;border-radius:4px;height:6px;overflow:hidden;">
+            <div style="background:#666666;border-radius:4px;height:6px;overflow:hidden;">
                 <div style="background:{color};width:{pct}%;height:100%;border-radius:4px;transition:width 0.5s ease;"></div>
             </div>
         </div>
@@ -366,8 +341,8 @@ def _format_reward_html(reward_dict: dict | None) -> str:
 
     return f"""
     <div class="reward-panel">
-        <div class="reward-total {color_class}">{total:.3f}</div>
-        <p style="text-align:center;color:#8b949e;font-size:12px;margin:-8px 0 16px 0;">Total Reward</p>
+        <div class="reward-total" style="color:#4183C4;">{total:.3f}</div>
+        <p style="text-align:center;color:#E2E8F0;font-size:12px;margin:-8px 0 16px 0;">Total Reward</p>
         {bars}
     </div>
     """
@@ -376,18 +351,18 @@ def _format_reward_html(reward_dict: dict | None) -> str:
 def _format_step_log(history: list) -> str:
     """Format the step history as a monospace log."""
     if not history:
-        return '<div class="step-log"><span style="color:#8b949e;">No steps taken yet. Reset the environment to start.</span></div>'
+        return '<div class="step-log"><span style="color:#E2E8F0;">No steps taken yet. Reset the environment to start.</span></div>'
 
     lines = []
     for i, entry in enumerate(history):
         total = entry.get("total", 0)
         if total >= 0.7:
-            color = "#3fb950"
+            color = "#4183C4"
         elif total >= 0.4:
-            color = "#d29922"
+            color = "#4183C4"
         else:
-            color = "#f85149"
-        lines.append(f'<span style="color:#8b949e;">Step {i+1:2d}</span>  <span style="color:{color};font-weight:600;">reward={total:+.3f}</span>  <span style="color:#8b949e;">label={entry.get("label_score",0):.2f} dup={entry.get("duplicate_score",0):.2f} pri={entry.get("priority_score",0):.2f} cmt={entry.get("comment_score",0):.2f} sec={entry.get("security_score",0):.2f}</span>')
+            color = "#4183C4"
+        lines.append(f'<span style="color:#E2E8F0;">Step {i+1:2d}</span>  <span style="color:{color};font-weight:600;">reward={total:+.3f}</span>  <span style="color:#E2E8F0;">label={entry.get("label_score",0):.2f} dup={entry.get("duplicate_score",0):.2f} pri={entry.get("priority_score",0):.2f} cmt={entry.get("comment_score",0):.2f} sec={entry.get("security_score",0):.2f}</span>')
 
     return f'<div class="step-log">{"<br>".join(lines)}</div>'
 
@@ -474,47 +449,58 @@ def do_get_state():
 
 # ── Build Gradio Interface ───────────────────────────────────────────────
 
+my_blue = gr.themes.Color(c50="#4183C4", c100="#4183C4", c200="#4183C4", c300="#4183C4", c400="#4183C4", c500="#4183C4", c600="#4183C4", c700="#4183C4", c800="#4183C4", c900="#4183C4", c950="#4183C4")
+my_gray = gr.themes.Color(c50="#E2E8F0", c100="#E2E8F0", c200="#E2E8F0", c300="#E2E8F0", c400="#E2E8F0", c500="#666666", c600="#666666", c700="#666666", c800="#333333", c900="#333333", c950="#333333")
+
 with gr.Blocks(
     css=CUSTOM_CSS,
     title="GitHub Issue Triage — OpenEnv Playground",
     theme=gr.themes.Base(
-        primary_hue=gr.themes.colors.blue,
-        secondary_hue=gr.themes.colors.purple,
-        neutral_hue=gr.themes.colors.gray,
-        font=gr.themes.GoogleFont("Inter"),
+        primary_hue=my_blue,
+        secondary_hue=my_gray,
+        neutral_hue=my_gray,
+        font=gr.themes.GoogleFont("Poppins"),
     ).set(
-        body_background_fill="#0d1117",
-        body_background_fill_dark="#0d1117",
-        block_background_fill="#161b22",
-        block_background_fill_dark="#161b22",
-        block_border_color="#30363d",
-        block_border_color_dark="#30363d",
-        block_label_text_color="#8b949e",
-        block_label_text_color_dark="#8b949e",
-        block_title_text_color="#f0f6fc",
-        block_title_text_color_dark="#f0f6fc",
-        body_text_color="#c9d1d9",
-        body_text_color_dark="#c9d1d9",
-        body_text_color_subdued="#8b949e",
-        body_text_color_subdued_dark="#8b949e",
-        input_background_fill="#0d1117",
-        input_background_fill_dark="#0d1117",
-        input_border_color="#30363d",
-        input_border_color_dark="#30363d",
-        button_primary_background_fill="#238636",
-        button_primary_background_fill_dark="#238636",
-        button_primary_background_fill_hover="#2ea043",
-        button_primary_background_fill_hover_dark="#2ea043",
-        button_primary_text_color="#ffffff",
-        button_primary_text_color_dark="#ffffff",
-        button_secondary_background_fill="#21262d",
-        button_secondary_background_fill_dark="#21262d",
-        button_secondary_text_color="#c9d1d9",
-        button_secondary_text_color_dark="#c9d1d9",
-        border_color_primary="#30363d",
-        border_color_primary_dark="#30363d",
-        shadow_drop="0 4px 12px rgba(0,0,0,0.4)",
-        shadow_drop_lg="0 8px 24px rgba(0,0,0,0.5)",
+        background_fill_primary="#333333",
+        background_fill_primary_dark="#333333",
+        background_fill_secondary="#333333",
+        background_fill_secondary_dark="#333333",
+        body_background_fill="#333333",
+        body_background_fill_dark="#333333",
+        block_background_fill="#333333",
+        block_background_fill_dark="#333333",
+        block_border_color="#666666",
+        block_border_color_dark="#666666",
+        block_label_text_color="#E2E8F0",
+        block_label_text_color_dark="#E2E8F0",
+        block_title_text_color="#E2E8F0",
+        block_title_text_color_dark="#E2E8F0",
+        body_text_color="#E2E8F0",
+        body_text_color_dark="#E2E8F0",
+        body_text_color_subdued="#E2E8F0",
+        body_text_color_subdued_dark="#E2E8F0",
+        color_accent="#4183C4",
+        color_accent_soft="#4183C4",
+        input_background_fill="#666666",
+        input_background_fill_dark="#666666",
+        input_border_color="#E2E8F0",
+        input_border_color_dark="#E2E8F0",
+        button_primary_background_fill="#4183C4",
+        button_primary_background_fill_dark="#4183C4",
+        button_primary_background_fill_hover="#4183C4",
+        button_primary_background_fill_hover_dark="#4183C4",
+        button_primary_text_color="#333333",
+        button_primary_text_color_dark="#333333",
+        button_secondary_background_fill="#666666",
+        button_secondary_background_fill_dark="#666666",
+        button_secondary_text_color="#E2E8F0",
+        button_secondary_text_color_dark="#E2E8F0",
+        border_color_primary="#666666",
+        border_color_primary_dark="#666666",
+        shadow_drop="none",
+        shadow_drop_lg="none",
+        panel_background_fill="#333333",
+        panel_background_fill_dark="#333333",
     ),
 ) as demo:
 
@@ -524,9 +510,9 @@ with gr.Blocks(
         <h1>🏷️ GitHub Issue Triage</h1>
         <p>OpenEnv-compliant RL Playground — Train agents to triage issues like an open source maintainer</p>
         <div style="display:flex;gap:8px;margin-top:12px;">
-            <span style="background:rgba(35,134,54,0.2);color:#3fb950;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid rgba(35,134,54,0.3);">● OpenEnv v1.0</span>
-            <span style="background:rgba(88,166,255,0.1);color:#58a6ff;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid rgba(88,166,255,0.2);">5 Tasks</span>
-            <span style="background:rgba(163,113,247,0.1);color:#a371f7;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid rgba(163,113,247,0.2);">acme/payments-sdk</span>
+            <span style="background:transparent;color:#4183C4;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid #4183C4;">● OpenEnv v1.0</span>
+            <span style="background:transparent;color:#E2E8F0;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid #E2E8F0;">5 Tasks</span>
+            <span style="background:transparent;color:#E2E8F0;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:600;border:1px solid #E2E8F0;">acme/payments-sdk</span>
         </div>
     </div>
     """)
@@ -625,8 +611,8 @@ with gr.Blocks(
             gr.HTML("""
             <div class="info-panel" style="margin-bottom:16px;">
                 <h4>Connect to this environment</h4>
-                <p style="color:#c9d1d9;font-size:13px;margin-bottom:12px;">Connect from Python using requests:</p>
-                <pre style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:16px;color:#c9d1d9;font-size:13px;overflow-x:auto;font-family:'JetBrains Mono',monospace;">
+                <p style="color:#E2E8F0;font-size:13px;margin-bottom:12px;">Connect from Python using requests:</p>
+                <pre style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:16px;color:#E2E8F0;font-size:13px;overflow-x:auto;font-family:'JetBrains Mono',monospace;">
 import requests, json
 
 BASE = "https://raunaqmittal2004-github-issue-env.hf.space"
@@ -654,40 +640,40 @@ print(f"Done: {result['done']}")
 
             <div class="info-panel" style="margin-bottom:16px;">
                 <h4>Available Tasks</h4>
-                <table style="width:100%;border-collapse:collapse;color:#c9d1d9;font-size:13px;">
-                    <tr style="border-bottom:1px solid #30363d;">
-                        <th style="text-align:left;padding:8px;color:#58a6ff;">Task ID</th>
-                        <th style="text-align:left;padding:8px;color:#58a6ff;">Difficulty</th>
-                        <th style="text-align:center;padding:8px;color:#58a6ff;">Issues</th>
-                        <th style="text-align:left;padding:8px;color:#58a6ff;">Challenge</th>
+                <table style="width:100%;border-collapse:collapse;color:#E2E8F0;font-size:13px;">
+                    <tr style="border-bottom:1px solid #666666;">
+                        <th style="text-align:left;padding:8px;color:#4183C4;">Task ID</th>
+                        <th style="text-align:left;padding:8px;color:#4183C4;">Difficulty</th>
+                        <th style="text-align:center;padding:8px;color:#4183C4;">Issues</th>
+                        <th style="text-align:left;padding:8px;color:#4183C4;">Challenge</th>
                     </tr>
-                    <tr style="border-bottom:1px solid #21262d;">
-                        <td style="padding:8px;"><code style="color:#f0883e;">task_easy</code></td>
-                        <td style="padding:8px;"><span style="color:#3fb950;">Easy</span></td>
+                    <tr style="border-bottom:1px solid #666666;">
+                        <td style="padding:8px;"><code style="color:#E2E8F0;">task_easy</code></td>
+                        <td style="padding:8px;"><span style="color:#4183C4;">Easy</span></td>
                         <td style="text-align:center;padding:8px;">1</td>
                         <td style="padding:8px;">Single clean bug report</td>
                     </tr>
-                    <tr style="border-bottom:1px solid #21262d;">
-                        <td style="padding:8px;"><code style="color:#f0883e;">task_medium</code></td>
-                        <td style="padding:8px;"><span style="color:#d29922;">Medium</span></td>
+                    <tr style="border-bottom:1px solid #666666;">
+                        <td style="padding:8px;"><code style="color:#E2E8F0;">task_medium</code></td>
+                        <td style="padding:8px;"><span style="color:#4183C4;">Medium</span></td>
                         <td style="text-align:center;padding:8px;">5</td>
                         <td style="padding:8px;">Mixed: bugs, feature, duplicate, needs-info</td>
                     </tr>
-                    <tr style="border-bottom:1px solid #21262d;">
-                        <td style="padding:8px;"><code style="color:#f0883e;">task_hard</code></td>
-                        <td style="padding:8px;"><span style="color:#f85149;">Hard</span></td>
+                    <tr style="border-bottom:1px solid #666666;">
+                        <td style="padding:8px;"><code style="color:#E2E8F0;">task_hard</code></td>
+                        <td style="padding:8px;"><span style="color:#4183C4;">Hard</span></td>
                         <td style="text-align:center;padding:8px;">10</td>
                         <td style="padding:8px;">Full inbox with disguised security vulnerability</td>
                     </tr>
-                    <tr style="border-bottom:1px solid #21262d;">
-                        <td style="padding:8px;"><code style="color:#f0883e;">task_release_blocker</code></td>
-                        <td style="padding:8px;"><span style="color:#d29922;">Medium</span></td>
+                    <tr style="border-bottom:1px solid #666666;">
+                        <td style="padding:8px;"><code style="color:#E2E8F0;">task_release_blocker</code></td>
+                        <td style="padding:8px;"><span style="color:#4183C4;">Medium</span></td>
                         <td style="text-align:center;padding:8px;">4</td>
                         <td style="padding:8px;">Release blockers: double-billing, Python 3.12 compat</td>
                     </tr>
                     <tr>
-                        <td style="padding:8px;"><code style="color:#f0883e;">task_community</code></td>
-                        <td style="padding:8px;"><span style="color:#f85149;">Hard</span></td>
+                        <td style="padding:8px;"><code style="color:#E2E8F0;">task_community</code></td>
+                        <td style="padding:8px;"><span style="color:#4183C4;">Hard</span></td>
                         <td style="text-align:center;padding:8px;">6</td>
                         <td style="padding:8px;">Community inbox with disguised PII data exposure</td>
                     </tr>
@@ -696,35 +682,35 @@ print(f"Done: {result['done']}")
 
             <div class="info-panel">
                 <h4>API Endpoints</h4>
-                <table style="width:100%;border-collapse:collapse;color:#c9d1d9;font-size:13px;">
-                    <tr style="border-bottom:1px solid #30363d;">
-                        <th style="text-align:left;padding:8px;color:#58a6ff;">Method</th>
-                        <th style="text-align:left;padding:8px;color:#58a6ff;">Path</th>
-                        <th style="text-align:left;padding:8px;color:#58a6ff;">Description</th>
+                <table style="width:100%;border-collapse:collapse;color:#E2E8F0;font-size:13px;">
+                    <tr style="border-bottom:1px solid #666666;">
+                        <th style="text-align:left;padding:8px;color:#4183C4;">Method</th>
+                        <th style="text-align:left;padding:8px;color:#4183C4;">Path</th>
+                        <th style="text-align:left;padding:8px;color:#4183C4;">Description</th>
                     </tr>
-                    <tr style="border-bottom:1px solid #21262d;">
-                        <td style="padding:8px;"><span style="color:#3fb950;font-weight:600;">GET</span></td>
-                        <td style="padding:8px;"><code style="color:#f0883e;">/</code></td>
+                    <tr style="border-bottom:1px solid #666666;">
+                        <td style="padding:8px;"><span style="color:#4183C4;font-weight:600;">GET</span></td>
+                        <td style="padding:8px;"><code style="color:#E2E8F0;">/</code></td>
                         <td style="padding:8px;">Discovery & metadata</td>
                     </tr>
-                    <tr style="border-bottom:1px solid #21262d;">
-                        <td style="padding:8px;"><span style="color:#3fb950;font-weight:600;">GET</span></td>
-                        <td style="padding:8px;"><code style="color:#f0883e;">/health</code></td>
+                    <tr style="border-bottom:1px solid #666666;">
+                        <td style="padding:8px;"><span style="color:#4183C4;font-weight:600;">GET</span></td>
+                        <td style="padding:8px;"><code style="color:#E2E8F0;">/health</code></td>
                         <td style="padding:8px;">Health check + task list</td>
                     </tr>
-                    <tr style="border-bottom:1px solid #21262d;">
-                        <td style="padding:8px;"><span style="color:#58a6ff;font-weight:600;">POST</span></td>
-                        <td style="padding:8px;"><code style="color:#f0883e;">/reset</code></td>
+                    <tr style="border-bottom:1px solid #666666;">
+                        <td style="padding:8px;"><span style="color:#4183C4;font-weight:600;">POST</span></td>
+                        <td style="padding:8px;"><code style="color:#E2E8F0;">/reset</code></td>
                         <td style="padding:8px;">Start a new episode</td>
                     </tr>
-                    <tr style="border-bottom:1px solid #21262d;">
-                        <td style="padding:8px;"><span style="color:#58a6ff;font-weight:600;">POST</span></td>
-                        <td style="padding:8px;"><code style="color:#f0883e;">/step</code></td>
+                    <tr style="border-bottom:1px solid #666666;">
+                        <td style="padding:8px;"><span style="color:#4183C4;font-weight:600;">POST</span></td>
+                        <td style="padding:8px;"><code style="color:#E2E8F0;">/step</code></td>
                         <td style="padding:8px;">Submit a triage action</td>
                     </tr>
                     <tr>
-                        <td style="padding:8px;"><span style="color:#3fb950;font-weight:600;">GET</span></td>
-                        <td style="padding:8px;"><code style="color:#f0883e;">/state</code></td>
+                        <td style="padding:8px;"><span style="color:#4183C4;font-weight:600;">GET</span></td>
+                        <td style="padding:8px;"><code style="color:#E2E8F0;">/state</code></td>
                         <td style="padding:8px;">Inspect current env state</td>
                     </tr>
                 </table>
