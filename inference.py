@@ -30,7 +30,8 @@ load_dotenv()
 # ── Mandatory env vars (per submission spec) ─────────────────────────────────
 API_BASE_URL: str = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME: str = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-HF_TOKEN: Optional[str] = os.getenv("HF_TOKEN")
+OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")  # Standard OpenAI key
+HF_TOKEN: Optional[str] = os.getenv("HF_TOKEN")              # HuggingFace / Groq key
 LOCAL_IMAGE_NAME: Optional[str] = os.getenv("LOCAL_IMAGE_NAME")  # docker-image launch
 
 BENCHMARK: str = os.getenv("OPENENV_BENCHMARK", "github-issue-triage")
@@ -89,7 +90,7 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
     """Emit one [END] line always — even on exception."""
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}",
         flush=True,
     )
 
@@ -233,9 +234,10 @@ def run_task(client: OpenAI, task_id: str) -> None:
 
 
 def main() -> None:
-    api_key = HF_TOKEN or os.getenv("OPENAI_API_KEY")
+    # Prefer OPENAI_API_KEY, then fall back to HF_TOKEN (Groq/HF-compatible)
+    api_key = OPENAI_API_KEY or HF_TOKEN
     if not api_key:
-        _stderr("[DEBUG] missing HF_TOKEN/OPENAI_API_KEY; model calls will fail over to heuristic")
+        _stderr("[DEBUG] missing OPENAI_API_KEY/HF_TOKEN; model calls will fail over to heuristic")
         api_key = "missing-key"
 
     client = OpenAI(base_url=API_BASE_URL, api_key=api_key)
