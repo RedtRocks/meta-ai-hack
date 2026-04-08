@@ -129,7 +129,7 @@ celerybeat.pid
 .venv
 # env/  (Commenting out because env/ is our package directory, not a venv)
 venv/
-ENV/
+# ENV/
 env.bak/
 venv.bak/
 
