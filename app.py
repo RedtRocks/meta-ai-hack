@@ -44,9 +44,7 @@ class ResetRequest(BaseModel):
 
 from fastapi.responses import RedirectResponse
 
-@api.get("/")
-def root():
-    return RedirectResponse(url="/web")
+
 
 
 @api.get("/health")
@@ -732,12 +730,4 @@ print(f"Done: {result['done']}")
             )
 
 
-# ── Mount Gradio on FastAPI ──────────────────────────────────────────────
-
-app = gr.mount_gradio_app(api, demo, path="/web")
-
-# Make Gradio the default page
-@api.get("/ui", include_in_schema=False)
-def redirect_to_web():
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/web")
+app = gr.mount_gradio_app(api, demo, path="/")
