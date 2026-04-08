@@ -193,4 +193,3 @@ test_smoke.py
 .agents/
 scores.txt
 clean_scores.txt
-.env.bak
