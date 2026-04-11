@@ -163,9 +163,17 @@ cd promptforge && openenv push --repo-id raunaqmittal2004/promptforge
 python upload_space.py
 ```
 
-### Baseline Performance Scores
+### Baseline performance scores
 
-As per the Meta Hackathon guidelines, here are the reproducible baseline evaluated scores from the `inference.py` script utilizing `llama-3.3-70b-versatile`:
+As per the Meta Hackathon guidelines, here are the reproducible baseline evaluated performance scores from the `inference.py` script utilizing `llama-3.3-70b-versatile`:
+
+| Task | Difficulty | Normalized Score | Evaluated Output Token Reduction | Ground-Truth Accuracy | 
+|---|---|---|---|---|
+| `task_few_shot_debt` | Easy | 1.00 | ~70% | 1.00 |
+| `task_mandate_conflict` | Medium | 0.85 | ~35% | 1.00 |
+| `task_schema_archaeology` | Hard | 0.92 | ~15% | 1.00 |
+
+Here is the exact stdout evaluation formatted output from the inference execution:
 
 ```text
 [START] task=promptforge_easy env=promptforge model=llama-3.3-70b-versatile
