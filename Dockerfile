@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install PromptForge dependencies (includes openenv-core)
 COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Pre-download DistilGPT-2 (perplexity guard) at build time to
 # avoid cold-start delays on HF Spaces.
