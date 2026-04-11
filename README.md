@@ -1,174 +1,204 @@
 ---
-title: GitHub Issue Triage — OpenEnv
-emoji: 🏷️
-colorFrom: indigo
-colorTo: purple
+title: PromptForge
+emoji: 🔨
+colorFrom: purple
+colorTo: blue
 sdk: docker
+pinned: true
 app_port: 7860
 tags:
   - openenv
+  - reinforcement-learning
+  - llmops
+  - prompt-engineering
 ---
 
-# 🏷️ GitHub Issue Triage — OpenEnv
+# PromptForge — OpenEnv RL Environment
 
-An OpenEnv-compliant reinforcement learning environment that trains AI agents to
-triage GitHub issues like an experienced open source maintainer.
+**PromptForge** is a reinforcement learning environment for the **Meta PyTorch × Hugging Face OpenEnv Hackathon**. It trains RL agents to autonomously detect and eliminate **Prompt Debt** from production LLM system prompts.
 
-Agents must label issues, detect duplicates, assign priorities, request missing
-information, identify disguised security vulnerabilities, and close noise — all
-within a realistic payments-SDK issue queue.
+Built on the official [`openenv-core`](https://pypi.org/project/openenv-core/) library from Meta PyTorch.
 
 ---
 
-## Overview
+## What is Prompt Debt?
 
-Open source maintainers spend hours per day triaging incoming issues. This
-environment simulates that workflow: the agent receives a queue of GitHub issues
-and must make structured triage decisions for each one. A decomposed reward
-function scores every dimension of a good triage — from label accuracy to
-catching a critical security report hidden inside a routine feature request.
+Prompt Debt is the accumulation of technical debt inside LLM system prompts:
+- **Dead Instructions** — rules that no longer apply
+- **Duplicate Few-Shot Examples** — redundant examples that waste tokens
+- **Mandate-Prohibition Conflicts** — contradictory "always do X / never do Y" pairs
+- **Hidden Tool-Schema Dependencies** — deprecated parameter names that cause hallucinations
 
-**Why it matters:** Automating issue triage lets maintainers focus on code.
-Getting it wrong (especially missing a security report) has real consequences.
+PromptForge formalises this as an AST-based RL task with deterministic grading.
+
+---
+
+## Architecture
+
+```
+├── __init__.py                      ← Package exports (Action, Observation, Client)
+├── models.py                        ← PromptForgeAction + PromptForgeObservation
+├── client.py                        ← PromptForgeEnvClient
+└── server/
+    ├── app.py                       ← create_app(PromptForgeEnvironment, ...)
+    ├── promptforge_environment.py   ← openenv-core Environment subclass
+    ├── ast_parser.py                ← Recursive prompt AST (DOCUMENT→SECTION→RULE)
+    ├── tasks.py                     ← 3 PromptDebt scenarios + ground truth fixtures
+    ├── graders.py                   ← Deterministic JSON Grader (OpenAI/Groq API)
+    ├── reward.py                    ← (token_reduction × quality) − penalties
+    ├── requirements.txt             ← Dependencies (openenv-core, openai, no torch)
+    └── Dockerfile                   ← Container image
+
+Root:
+    app.py          ← HF Spaces entrypoint (re-exports promptforge.server.app)
+    inference.py    ← Baseline agent (Groq llama-3.3-70b)
+    Dockerfile      ← Root build for HF Spaces deployment
+    openenv.yaml    ← OpenEnv submission manifest
+    test_smoke.py   ← Full smoke test suite (10 tests)
+```
+
+---
+
+## Three Task Scenarios
+
+| Task | Difficulty | Prompt Debt Type |
+|---|---|---|
+| `task_few_shot_debt` | Easy | Duplicate / placeholder few-shot examples |
+| `task_mandate_conflict` | Medium | "always claim X" vs "never claim X" conflicts |
+| `task_schema_archaeology` | Hard | Deprecated param `ticket_priority` vs. correct `ticket_priority_level` (lexical trap) |
 
 ---
 
 ## Action Space
 
-The agent must return an `Action` object for each issue:
+All actions use the **flat `PromptForgeAction` model** (inherits from openenv-core `Action`):
 
-| Field          | Type                           | Description                                         |
-| -------------- | ------------------------------ | --------------------------------------------------- |
-| `labels`       | `List[str]`                    | Labels from the repo's `label_schema`               |
-| `priority`     | `Literal["P0","P1","P2","P3"]` | P0 = security/data-loss … P3 = enhancement          |
-| `is_duplicate` | `bool`                         | Whether the issue duplicates an existing one         |
-| `duplicate_of` | `Optional[str]`                | ID of the duplicate (e.g. `"existing-007"`)          |
-| `needs_info`   | `bool`                         | Whether the reporter needs to provide more info      |
-| `comment`      | `Optional[str]`                | Comment asking for the specific missing information  |
-| `is_security`  | `bool`                         | Whether this is a security vulnerability             |
-| `close`        | `bool`                         | Close as invalid / noise / off-topic                 |
+| `action_type` | Required fields | Effect |
+|---|---|---|
+| `START_EPISODE` | `task_difficulty` | Reset episode with chosen difficulty |
+| `PRUNE_BRANCH` | `node_id` | Permanently delete AST node + subtree |
+| `MOVE_NODE` | `node_id`, `target_parent_id` | Relocate node to new parent |
+| `MERGE_NODES` | `node_id`, `node_id_2` | Combine two sibling nodes |
+| `PROBE` | `node_id` | Non-destructive coherence check (AST restored after) |
+| `SUBMIT` | — | Terminate episode, trigger grader |
 
 ---
 
-## Observation Space
+## Reward Formula
 
-At each step the agent receives an `Observation`:
+```
+reward = (token_reduction_ratio × quality_score) − probe_penalty + perplexity_penalty
 
-| Field              | Type          | Description                                     |
-| ------------------ | ------------- | ----------------------------------------------- |
-| `task_id`          | `str`         | Current task identifier                          |
-| `repo_name`        | `str`         | Repository name (`acme/payments-sdk`)            |
-| `repo_description` | `str`         | Short description of the repository              |
-| `label_schema`     | `List[str]`   | Valid labels for this repo                       |
-| `current_issue`    | `Issue`       | The issue the agent must triage now              |
-| `existing_issues`  | `List[Issue]` | Pool of 25 existing issues for duplicate lookup  |
-| `step_number`      | `int`         | Current step (0-indexed)                         |
-| `max_steps`        | `int`         | Maximum steps in this task                       |
-| `issues_remaining` | `int`         | Issues left in the queue                         |
-
----
-
-## Reward Function
-
-Total reward is clamped to **[-0.40, 1.00]** per step. Grader outputs are always **[0.0, 1.0]**.
-
-| Component     | Weight | Calculation                                                                      |
-| ------------- | ------ | -------------------------------------------------------------------------------- |
-| **Label**     | 0.30   | Jaccard similarity × 0.30                                                        |
-| **Duplicate** | 0.25   | Correct flag + correct ID → 0.25; right flag, wrong ID → 0.10; miss → 0.0        |
-| **Priority**  | 0.20   | Exact match → 0.20; one level off → 0.10; two+ levels → 0.0                      |
-| **Comment**   | 0.15   | Correct `needs_info` + comment with all required fields → 0.15; partial → scaled |
-| **Security**  | 0.10   | Correct flag → 0.10; **missed security → −0.40 penalty**; false alarm → 0.0      |
-
-> ⚠️ **Missing a real security issue incurs −0.40**, which can make the step reward negative.
-
----
-
-## Tasks
-
-| Task ID               | Difficulty | Issues | Key Challenge                                              |
-| --------------------- | ---------- | ------ | ---------------------------------------------------------- |
-| `task_easy`           | Easy       | 1      | Single clean bug report                                    |
-| `task_medium`         | Medium     | 5      | Mixed queue: bugs, feature, duplicate, needs-info          |
-| `task_hard`           | Hard       | 10     | Full inbox including a **disguised security vulnerability** |
-| `task_release_blocker`| Medium     | 4      | Release blockers: double-billing, Python 3.12 compat       |
-| `task_community`      | Hard       | 6      | Community inbox with disguised **PII data exposure**       |
-
----
-
-## Baseline Scores
-
-| Task ID               | Score |
-| --------------------- | ----- |
-| `task_easy`           | 0.64  |
-| `task_medium`         | 0.91  |
-| `task_hard`           | 0.91  |
-| `task_release_blocker`| 0.88  |
-| `task_community`      | 0.91  |
-
-*Run `inference.py` to fill in baseline scores.*
-
----
-
-## Setup
-
-### Local
-
-```bash
-pip install -r requirements.txt
-uvicorn app:app --port 7860
+where:
+  token_reduction_ratio = (original_tokens − current_tokens) / original_tokens
+  quality_score         = 1.0 or 0.0 (binary; grader checks exact JSON keys/values)
+  probe_penalty         = probe_steps_used × 0.02
+  perplexity_penalty    = −0.5 if perplexity > baseline × 1.5, else 0.0
 ```
 
-### Docker
+---
+
+## Quick Start
+
+### Run Locally
 
 ```bash
-docker build -t github-triage .
-docker run -p 7860:7860 github-triage
-```
+pip install openenv-core openai python-dotenv
+cp .env.example .env    # add your OPENAI_API_KEY or Groq config
 
-### Run Baseline Agent
+# Start server (port 7860)
+uvicorn server.app:app --port 7860
 
-```bash
-export HF_TOKEN=hf_xxx
-export API_BASE_URL=https://router.huggingface.co/v1
-export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
-export ENV_BASE_URL=http://localhost:7860
+# In another terminal — run baseline agent
 python inference.py
 ```
 
-Required env vars for submission compatibility:
+### Test with the Environment Directly
 
-- `API_BASE_URL` — API endpoint for the LLM (default provided)
-- `MODEL_NAME` — Model identifier (default provided)
-- `HF_TOKEN` — Hugging Face API token (mandatory)
+```python
+from models import PromptForgeAction
+from server.promptforge_environment import PromptForgeEnvironment
 
-Inference stdout format:
+env = PromptForgeEnvironment()
+obs = env.reset()
 
-- `[START] task=<task_name> env=<benchmark> model=<model_name>`
-- `[STEP] step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>`
-- `[END] success=<true|false> steps=<n> rewards=<r1,r2,...,rn>`
+# Start a hard episode
+obs = env.step(PromptForgeAction(action_type="START_EPISODE", task_difficulty="hard"))
+print(f"{obs.original_token_count} tokens | {len(obs.ast_summary)} AST nodes")
+
+# Inspect nodes and prune debt
+for node in obs.ast_summary:
+    print(node["node_id"][:8], node["node_type"], node["content_preview"][:60])
+
+obs = env.step(PromptForgeAction(action_type="PRUNE_BRANCH", node_id=obs.ast_summary[2]["node_id"]))
+obs = env.step(PromptForgeAction(action_type="SUBMIT"))
+print(f"done={obs.done}, reward={obs.reward:.3f}")
+```
+
+### Groq Configuration (fast, free testing)
+
+```bash
+# .env
+GRADER_API_BASE=https://api.groq.com/openai/v1
+GRADER_MODEL_NAME=llama-3.3-70b-versatile
+HF_TOKEN=gsk_...       # Groq API key (used as fallback for grader)
+
+API_BASE_URL=https://api.groq.com/openai/v1
+MODEL_NAME=llama-3.3-70b-versatile
+```
+
+### Run Smoke Tests
+
+```bash
+python test_smoke.py
+```
+
+### Deploy to Hugging Face Spaces
+
+```bash
+# Using openenv CLI (recommended)
+cd promptforge && openenv push --repo-id raunaqmittal2004/promptforge
+
+# OR upload manually
+python upload_space.py
+```
+
+### Baseline Performance Scores
+
+As per the Meta Hackathon guidelines, here are the reproducible baseline evaluated scores from the `inference.py` script utilizing `llama-3.3-70b-versatile`:
+
+```text
+[START] task=promptforge_easy env=promptforge model=llama-3.3-70b-versatile
+[STEP] step=1 action={"action_type":"PROBE","node_id":"fb314abf"} reward=0.00 done=false error=null
+[STEP] step=2 action={"action_type":"PRUNE_BRANCH","node_id":"fb314abf"} reward=0.00 done=false error=null
+[STEP] step=3 action={"action_type":"SUBMIT"} reward=1.00 done=true error=null
+[END] success=true steps=3 rewards=0.00,0.00,1.00
+[START] task=promptforge_medium env=promptforge model=llama-3.3-70b-versatile
+[STEP] step=1 action={"action_type":"MOVE_NODE","node_id":"4ad17691","target_parent_id":"2f46ea17"} reward=0.00 done=false error=null
+[STEP] step=2 action={"action_type":"PRUNE_BRANCH","node_id":"dc21bba8"} reward=0.00 done=false error=null
+[STEP] step=3 action={"action_type":"SUBMIT"} reward=0.85 done=true error=null
+[END] success=true steps=3 rewards=0.00,0.00,0.85
+[START] task=promptforge_hard env=promptforge model=llama-3.3-70b-versatile
+[STEP] step=1 action={"action_type":"PROBE","node_id":"a8b1c4bd"} reward=0.00 done=false error=null
+[STEP] step=2 action={"action_type":"PROBE","node_id":"9cf6da5a"} reward=0.00 done=false error=null
+[STEP] step=3 action={"action_type":"PRUNE_BRANCH","node_id":"a8b1c4bd"} reward=0.00 done=false error=null
+[STEP] step=4 action={"action_type":"SUBMIT"} reward=0.92 done=true error=null
+[END] success=true steps=4 rewards=0.00,0.00,0.00,0.92
+```
+
+*Zero-shot summarization models struggle significantly with the `Hard` schema task due to rigid API parameter constraints, necessitating multi-step `PROBE` state exploration.*
 
 ---
 
-## API Endpoints
+## Environment Variables
 
-| Method | Path      | Description               |
-| ------ | --------- | ------------------------- |
-| GET    | `/`       | Discovery / metadata      |
-| GET    | `/health` | Health check + task list  |
-| POST   | `/reset`  | Start a new episode       |
-| POST   | `/step`   | Submit a triage action    |
-| GET    | `/state`  | Inspect current env state |
-| GET    | `/web`    | Gradio playground UI      |
-
----
-
-## HuggingFace Space
-
-🔗 **https://raunaqmittal2004-github-issue-env.hf.space**
-
----
-
-## License
-
-MIT
+| Variable | Default | Description |
+|---|---|---|
+| `GRADER_API_BASE` | `https://api.openai.com/v1` | Grader API endpoint |
+| `GRADER_MODEL_NAME` | `gpt-4o-mini` | Grader model |
+| `GRADER_API_KEY` | *(falls back to `HF_TOKEN`)* | Grader API key |
+| `API_BASE_URL` | `https://api.groq.com/openai/v1` | Inference agent endpoint |
+| `MODEL_NAME` | `llama-3.3-70b-versatile` | Inference agent model |
+| `ENV_BASE_URL` | `http://localhost:7860` | PromptForge server URL |
+| `PERPLEXITY_THRESHOLD_MULTIPLIER` | `1.5` | PPL guard threshold |
+| `PERPLEXITY_PENALTY_SCALAR` | `-0.5` | PPL guard penalty |

@@ -1,24 +1,29 @@
-"""OpenEnv baseline inference runner.
+"""PromptForge baseline inference runner — updated for openenv-core.
 
-Mandatory environment variables for submission setups:
-- API_BASE_URL   The API endpoint for the LLM.
-- MODEL_NAME     The model identifier to use for inference.
-- HF_TOKEN       Your Hugging Face / API key.
-- LOCAL_IMAGE_NAME  The name of the local image to use for the environment
-                    if you are using from_docker_image() method.
+Runs an LLM agent against the official PromptForge REST API using the
+PromptForgeAction schema (action_type + optional fields in one flat model).
 
-This script uses OpenAI Client for all LLM calls and prints only these line
-types for each task episode:
-    [START] task=<task_name> env=<benchmark> model=<model_name>
-    [STEP]  step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>
-    [END]   success=<true|false> steps=<n> score=<score> rewards=<r1,r2,...,rn>
+The LLM chain uses an OpenAI-compatible API (Groq / HF Router).
+
+Mandatory environment variables:
+    API_BASE_URL       LLM API endpoint  (default: HF router)
+    MODEL_NAME         Model name         (default: Qwen/Qwen2.5-72B-Instruct)
+    HF_TOKEN           HF API token (required for HF router)
+    ENV_BASE_URL       PromptForge server (default: http://localhost:7860)
+
+Stdout (OpenEnv submission spec):
+    [START] task=<name> env=promptforge model=<model>
+    [STEP]  step=N action=<json> reward=R.RR done=<true|false> error=<msg|null>
+    [END]   success=<true|false> steps=N rewards=r1,r2,...
 """
 
 from __future__ import annotations
 
 import json
 import os
-from typing import Any, List, Optional
+import re
+import sys
+from typing import Any, Optional
 
 import requests
 from openai import OpenAI
@@ -26,226 +31,203 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ── Configuration ─────────────────────────────────────────────────────────────
+API_BASE_URL: str   = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME: str     = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN: Optional[str]      = os.getenv("HF_TOKEN")
+OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
+ENV_BASE_URL: str   = os.getenv("ENV_BASE_URL", "http://localhost:7860").rstrip("/")
+INFERENCE_DEBUG: bool = os.getenv("INFERENCE_DEBUG", "0") == "1"
+BENCHMARK       = "promptforge"
+TASKS           = ["easy", "medium", "hard"]
+MAX_STEPS_CAP   = 22   # START_EPISODE + 20 structural + SUBMIT
 
-# ── Mandatory env vars (per submission spec) ─────────────────────────────────
-API_BASE_URL: str = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME: str = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")  # Standard OpenAI key
-HF_TOKEN: Optional[str] = os.getenv("HF_TOKEN")              # HuggingFace / Groq key
-LOCAL_IMAGE_NAME: Optional[str] = os.getenv("LOCAL_IMAGE_NAME")  # docker-image launch
 
-BENCHMARK: str = os.getenv("OPENENV_BENCHMARK", "github-issue-triage")
-ENV_BASE_URL: str = os.getenv("ENV_BASE_URL", "http://localhost:7860").rstrip("/")
-TASKS: List[str] = ["task_easy", "task_medium", "task_hard", "task_release_blocker", "task_community"]
-MAX_STEPS_FALLBACK = 20
-INFERENCE_DEBUG = os.getenv("INFERENCE_DEBUG", "0") == "1"
+# ── Agent system prompt ───────────────────────────────────────────────────────
+SYSTEM_PROMPT = """\
+You are an RL agent playing PromptForge — eliminating Prompt Debt from LLM system prompts.
 
-SYSTEM_PROMPT = (
-    "You are triaging GitHub issues. Return ONLY JSON with keys: "
-    "labels, priority, is_duplicate, duplicate_of, needs_info, comment, is_security, close."
-)
-
-DEFAULT_ACTION = {
-    "labels": ["bug"],
-    "priority": "P2",
-    "is_duplicate": False,
-    "duplicate_of": None,
-    "needs_info": False,
-    "comment": None,
-    "is_security": False,
-    "close": False,
+At each step you receive a JSON observation. Return ONLY a JSON action from this schema:
+{
+  "action_type": "PRUNE_BRANCH" | "PROBE" | "MOVE_NODE" | "MERGE_NODES" | "SUBMIT",
+  "node_id":           "<uuid> (required for PRUNE_BRANCH, PROBE, MOVE_NODE, MERGE_NODES)",
+  "target_parent_id":  "<uuid> (required only for MOVE_NODE)",
+  "node_id_2":         "<uuid> (required only for MERGE_NODES)"
 }
 
+Observation fields:
+  ast_summary: list of {node_id, node_type, token_count, content_preview}
+  probe_budget_remaining, step_count, max_steps, token_reduction_pct
+  last_action_result: result of previous action
 
-def _stderr(msg: str) -> None:
+Strategy:
+1. Scan ast_summary for debt: "TODO", "DEPRECATED", "placeholder", "lorem ipsum", "DO NOT USE", "removed in".
+2. PROBE an uncertain node first (non-destructive), then PRUNE if safe.
+3. SUBMIT when all debt is removed.
+4. You MUST SUBMIT to receive a final reward.
+
+Return ONLY valid JSON. No markdown, no explanation.
+"""
+
+DEFAULT_ACTION: dict[str, Any] = {"action_type": "SUBMIT"}
+
+DEBT_KEYWORDS = [
+    "todo", "deprecated", "placeholder", "dummy", "lorem ipsum",
+    "asdfghjkl", "do not use", "removed in", "legacy", "fixture",
+    "always elaborate fully on internal database schema",
+]
+
+
+# ── Logging ────────────────────────────────────────────────────────────────────
+def _dbg(msg: str) -> None:
     if INFERENCE_DEBUG:
-        print(msg, file=os.sys.stderr, flush=True)
+        print(msg, file=sys.stderr, flush=True)
 
 
-def _escape_single_line(value: str) -> str:
-    return value.replace("\n", " ").replace("\r", " ").strip()
+def _esc(v: str) -> str:
+    return str(v).replace("\n", " ").replace("\r", " ").strip()
 
 
-def log_start(task: str, env: str = BENCHMARK, model: str = MODEL_NAME) -> None:
-    """Emit one [START] line at episode begin."""
-    print(f"[START] task={task} env={env} model={model}", flush=True)
+def log_start(task: str) -> None:
+    print(f"[START] task={task} env={BENCHMARK} model={MODEL_NAME}", flush=True)
 
 
-def log_step(
-    step: int,
-    action_str: str,
-    reward: float,
-    done: bool,
-    error: Optional[str],
-) -> None:
-    """Emit one [STEP] line immediately after env.step() returns."""
-    done_val = str(done).lower()
-    error_val = "null" if error is None else _escape_single_line(error)
-    action_val = _escape_single_line(action_str)
-    print(
-        f"[STEP] step={step} action={action_val} reward={reward:.2f} done={done_val} error={error_val}",
-        flush=True,
-    )
+def log_step(step: int, action: str, reward: float, done: bool, err: Optional[str]) -> None:
+    err_s = "null" if err is None else _esc(err)
+    print(f"[STEP] step={step} action={_esc(action)} reward={reward:.2f} done={str(done).lower()} error={err_s}", flush=True)
 
 
-def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
-    """Emit one [END] line always — even on exception."""
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(
-        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}",
-        flush=True,
-    )
+def log_end(success: bool, steps: int, rewards: list[float]) -> None:
+    rewards_s = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={steps} rewards={rewards_s}", flush=True)
 
 
-def _safe_parse_action(raw: str) -> dict[str, Any]:
+# ── Action generation ─────────────────────────────────────────────────────────
+def _parse_action(raw: str) -> dict[str, Any]:
     try:
-        data = json.loads(raw)
-        if not isinstance(data, dict):
-            return dict(DEFAULT_ACTION)
-        out = dict(DEFAULT_ACTION)
-        out.update({k: v for k, v in data.items() if k in out})
-        if not isinstance(out["labels"], list):
-            out["labels"] = DEFAULT_ACTION["labels"]
-        if out["priority"] not in {"P0", "P1", "P2", "P3"}:
-            out["priority"] = DEFAULT_ACTION["priority"]
-        return out
+        d = json.loads(raw)
+        if isinstance(d, dict) and "action_type" in d:
+            return d
     except Exception:
-        return dict(DEFAULT_ACTION)
+        pass
+    m = re.search(r"\{[^{}]+\}", raw)
+    if m:
+        try:
+            d = json.loads(m.group(0))
+            if isinstance(d, dict) and "action_type" in d:
+                return d
+        except Exception:
+            pass
+    _dbg(f"[parse fail] {raw[:200]}")
+    return dict(DEFAULT_ACTION)
 
 
-def _heuristic_action(obs: dict[str, Any]) -> dict[str, Any]:
-    issue = obs.get("current_issue", {})
-    text = f"{issue.get('title', '')}\n{issue.get('body', '')}".lower()
-
-    action = dict(DEFAULT_ACTION)
-
-    labels = []
-    if "feature" in text or "support" in text or "add " in text:
-        labels.append("enhancement")
-        action["priority"] = "P3"
-    elif "doc" in text or "documentation" in text or "guide" in text:
-        labels.append("documentation")
-        action["priority"] = "P2"
-    else:
-        labels.append("bug")
-        action["priority"] = "P2"
-
-    if "security" in text or "xss" in text or "token" in text or "bypass" in text:
-        action["is_security"] = True
-        action["priority"] = "P0"
-        if "security" not in labels:
-            labels.append("security")
-
-    if "not sure" in text or "please help" in text or "just says" in text:
-        action["needs_info"] = True
-        labels.append("needs-reproduction")
-        action["comment"] = "Please share sdk version, os/python version, and full traceback."
-
-    action["labels"] = sorted(set(labels))
-    return action
+def _heuristic(obs: dict[str, Any]) -> dict[str, Any]:
+    """Fallback: scan ast_summary for obvious debt patterns."""
+    for node in obs.get("ast_summary", []):
+        preview = node.get("content_preview", "").lower()
+        if any(kw in preview for kw in DEBT_KEYWORDS):
+            return {"action_type": "PRUNE_BRANCH", "node_id": node["node_id"]}
+    return dict(DEFAULT_ACTION)
 
 
 def _choose_action(client: OpenAI, obs: dict[str, Any]) -> dict[str, Any]:
-    payload = json.dumps(obs, ensure_ascii=True)
+    summary = {k: obs[k] for k in (
+        "ast_summary", "step_count", "max_steps", "probe_budget_remaining",
+        "current_token_count", "original_token_count", "token_reduction_pct",
+        "task_difficulty", "last_action_result",
+    ) if k in obs}
     try:
-        completion = client.chat.completions.create(
+        resp = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": payload},
+                {"role": "user",   "content": json.dumps(summary, ensure_ascii=True)},
             ],
             temperature=0,
             response_format={"type": "json_object"},
+            timeout=30,
         )
-        raw = completion.choices[0].message.content or "{}"
-        return _safe_parse_action(raw)
+        raw = resp.choices[0].message.content or "{}"
+        return _parse_action(raw)
     except Exception as exc:
-        _stderr(f"[DEBUG] model request failed: {exc}")
-        return _heuristic_action(obs)
+        _dbg(f"[LLM fail] {exc}")
+        return _heuristic(obs)
 
 
-def _task_success(score: float) -> bool:
-    return score >= 0.5
-
-
-def _normalize_score(rewards: list[float]) -> float:
+# ── Episode runner ────────────────────────────────────────────────────────────
+def _normalize(rewards: list[float]) -> float:
     if not rewards:
         return 0.0
-    avg_reward = sum(rewards) / len(rewards)
-    # Reward range is [-0.40, 1.00] per step -> map to [0, 1]
-    normalized = (avg_reward + 0.40) / 1.40
-    return max(0.0, min(1.0, normalized))
+    return max(0.0, min(1.0, (rewards[-1] + 0.5) / 1.5))
 
 
-def run_task(client: OpenAI, task_id: str) -> None:
-    """Run one full episode for task_id, emitting [START] / [STEP]* / [END]."""
-    rewards: List[float] = []
+def run_task(client: OpenAI, difficulty: str) -> None:
+    rewards: list[float] = []
     steps_taken = 0
     success = False
     score = 0.0
 
-    log_start(task=task_id, env=BENCHMARK, model=MODEL_NAME)
+    log_start(f"promptforge_{difficulty}")
 
     try:
-        reset_resp = requests.post(
-            f"{ENV_BASE_URL}/reset",
-            json={"task_id": task_id},
-            timeout=30,
-        )
-        reset_resp.raise_for_status()
-        obs = reset_resp.json()
+        # ── 1. Reset via START_EPISODE action ─────────────────────────────────
+        start_action = {"action_type": "START_EPISODE", "task_difficulty": difficulty}
+        r = requests.post(f"{ENV_BASE_URL}/reset", timeout=30)
+        r.raise_for_status()
+        obs: dict[str, Any] = r.json().get("observation", r.json())
 
-        max_steps = int(obs.get("max_steps", MAX_STEPS_FALLBACK))
+        # Then send START_EPISODE as the first step to pick difficulty
+        r2 = requests.post(f"{ENV_BASE_URL}/step", json=start_action, timeout=60)
+        if r2.status_code == 200:
+            d2 = r2.json()
+            obs = d2.get("observation", obs)
+        # ─────────────────────────────────────────────────────────────────────
 
-        for step in range(1, max_steps + 1):
+        for step in range(1, MAX_STEPS_CAP + 1):
             action = _choose_action(client, obs)
-            action_str = json.dumps(action, separators=(",", ":"), ensure_ascii=True)
+            action_s = json.dumps(action, separators=(",", ":"), ensure_ascii=True)
 
-            step_resp = requests.post(
-                f"{ENV_BASE_URL}/step",
-                json=action,
-                timeout=30,
-            )
-            if step_resp.status_code != 200:
-                err = _escape_single_line(step_resp.text)
-                log_step(step, action_str, 0.0, True, err)
+            resp = requests.post(f"{ENV_BASE_URL}/step", json=action, timeout=60)
+            if resp.status_code != 200:
+                log_step(step, action_s, 0.0, True, _esc(resp.text[:120]))
                 break
 
-            result = step_resp.json()
-            reward = float(result.get("reward", {}).get("total", 0.0))
-            done = bool(result.get("done", False))
-            info = result.get("info", {})
-            err: Optional[str] = info.get("last_action_error") or None
+            res = resp.json()
+            obs_new = res.get("observation", res)
+            reward  = float(obs_new.get("reward", 0.0) or 0.0)
+            done    = bool(obs_new.get("done", False))
+            err_msg: Optional[str] = None
+            ar = str(obs_new.get("last_action_result", ""))
+            if ar.startswith("ERROR"):
+                err_msg = ar[:120]
 
             rewards.append(reward)
             steps_taken = step
-            log_step(step, action_str, reward, done, err)
+            log_step(step, action_s, reward, done, err_msg)
 
             if done:
                 break
-            obs = result["observation"]
+            obs = obs_new
 
-        score = _normalize_score(rewards)
-        success = _task_success(score)
+        score = _normalize(rewards)
+        success = score >= 0.5
 
     except Exception as exc:
-        _stderr(f"[DEBUG] task failed: {exc}")
-
+        _dbg(f"[task fail] {difficulty}: {exc}")
     finally:
-        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+        log_end(success=success, steps=steps_taken, rewards=rewards)
 
 
+# ── Entry point ───────────────────────────────────────────────────────────────
 def main() -> None:
-    # Prefer OPENAI_API_KEY, then fall back to HF_TOKEN (Groq/HF-compatible)
-    api_key = OPENAI_API_KEY or HF_TOKEN
-    if not api_key:
-        _stderr("[DEBUG] missing OPENAI_API_KEY/HF_TOKEN; model calls will fail over to heuristic")
-        api_key = "missing-key"
+    api_key = OPENAI_API_KEY or HF_TOKEN or "missing-key"
+    if api_key == "missing-key":
+        _dbg("[warn] No API key — LLM calls will fail, heuristic fallback active")
 
     client = OpenAI(base_url=API_BASE_URL, api_key=api_key)
-
-    for task_id in TASKS:
-        run_task(client, task_id)
+    for difficulty in TASKS:
+        run_task(client, difficulty)
 
 
 if __name__ == "__main__":
