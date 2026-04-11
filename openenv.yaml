@@ -1,49 +1,58 @@
-name: github-issue-triage
+name: promptforge
 version: "1.0.0"
 description: >
-  Train agents to triage GitHub issues like an experienced open source
-  maintainer. Covers labeling, duplicate detection, priority assignment,
-  info requests, and security report identification.
-author: "metahack"
+  PromptForge — OpenEnv-compliant RL environment for training agents to detect
+  and eliminate Prompt Debt from production LLM system prompts. Built on the
+  official openenv-core library. Based on the PromptDebt taxonomy (Aljohani
+  et al. 2025) and Arbiter AST interference detection (arXiv 2026).
+author: "raunaqmittal"
 tags:
   - openenv
-  - developer-tools
+  - llmops
+  - prompt-engineering
+  - reinforcement-learning
+  - ast
   - nlp
-  - code-review
-  - github
+
+framework: openenv-core==0.2.3
+
 tasks:
-  - id: task_easy
-    name: "Single issue triage"
+  - id: task_few_shot_debt
+    name: "Few-Shot Debt Eradication"
     difficulty: easy
-    max_steps: 1
-    description: "Label and prioritise one clean bug report"
-  - id: task_medium
-    name: "Mixed inbox — 5 issues"
+    max_steps: 20
+    start_action:
+      action_type: "START_EPISODE"
+      task_difficulty: "easy"
+
+  - id: task_mandate_conflict
+    name: "Mandate-Prohibition Conflict Resolution"
     difficulty: medium
-    max_steps: 5
-    description: "Triage 5 issues including a duplicate and a needs-info"
-  - id: task_hard
-    name: "Full inbox with security threat"
+    max_steps: 20
+    start_action:
+      action_type: "START_EPISODE"
+      task_difficulty: "medium"
+
+  - id: task_schema_archaeology
+    name: "Multi-Tool Schema Archaeology"
     difficulty: hard
-    max_steps: 10
-    description: "10 issues including one disguised security vulnerability"
-  - id: task_release_blocker
-    name: "Release blocker triage"
-    difficulty: medium
-    max_steps: 4
-    description: "4 issues to evaluate as potential release blockers — double-billing, Python 3.12 compat, data loss"
-  - id: task_community
-    name: "Community inbox with data exposure"
-    difficulty: hard
-    max_steps: 6
-    description: "6 community reports including a disguised PII data exposure issue"
-observation_space: env.models.Observation
-action_space: env.models.Action
-reward_range: [-0.4, 1.0]
-baseline_scores:
-  task_easy: 0.64
-  task_medium: 0.91
-  task_hard: 0.91
-  task_release_blocker: 0.88
-  task_community: 0.91
-endpoint: "https://raunaqmittal2004-github-issue-env.hf.space"
+    max_steps: 20
+    start_action:
+      action_type: "START_EPISODE"
+      task_difficulty: "hard"
+
+observation_space: models.PromptForgeObservation
+action_space: models.PromptForgeAction
+reward_range: [-0.5, 1.0]
+
+transport:
+  - type: http
+    paths:
+      reset: /reset
+      step: /step
+      state: /state
+      health: /health
+  - type: websocket
+    path: /ws
+
+endpoint: "https://raunaqmittal-promptforge.hf.space"
