@@ -37,7 +37,6 @@ load_dotenv()
 API_BASE_URL: str   = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME: str     = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 HF_TOKEN: Optional[str]      = os.getenv("HF_TOKEN")
-OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
 ENV_BASE_URL: str   = os.getenv("ENV_BASE_URL", "http://localhost:7860").rstrip("/")
 INFERENCE_DEBUG: bool = os.getenv("INFERENCE_DEBUG", "0") == "1"
 BENCHMARK       = "promptforge"
@@ -255,7 +254,7 @@ def run_task(env_client: PromptForgeEnvClient, client: OpenAI, difficulty: str) 
             err_msg: Optional[str] = None
             ar = str(obs_new.get("last_action_result", ""))
             if ar.startswith("ERROR"):
-                err_msg = ar[:120]
+                err_msg = ar
 
             rewards.append(reward)
             steps_taken = step
