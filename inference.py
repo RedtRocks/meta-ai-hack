@@ -6,10 +6,9 @@ PromptForgeAction schema (action_type + optional fields in one flat model).
 The LLM chain uses an OpenAI-compatible API (Groq / HF Router).
 
 Mandatory environment variables:
-    API_BASE_URL       LLM API endpoint  (default: HF router)
+    API_BASE_URL       LLM API endpoint (injected by evaluator proxy)
     MODEL_NAME         Model name         (default: Qwen/Qwen2.5-72B-Instruct)
-    API_KEY            API key injected by evaluator proxy (required in eval)
-    HF_TOKEN           Optional local fallback for local runs
+    API_KEY            API key injected by evaluator proxy (required)
     ENV_BASE_URL       PromptForge server (default: http://localhost:7860)
 
 Stdout (OpenEnv submission spec):
@@ -35,15 +34,7 @@ from models import PromptForgeAction
 load_dotenv(override=False)  # never override evaluator-injected env vars
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-API_BASE_URL: str   = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME: str     = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-API_KEY: Optional[str] = os.getenv("API_KEY")
-HF_TOKEN: Optional[str]      = os.getenv("HF_TOKEN")
-
-# Debug: log which API base URL is being used
-print(f"[CONFIG] API_BASE_URL={API_BASE_URL}", file=sys.stderr, flush=True)
-print(f"[CONFIG] API_KEY={'set' if API_KEY else 'NOT SET'}", file=sys.stderr, flush=True)
-print(f"[CONFIG] MODEL_NAME={MODEL_NAME}", file=sys.stderr, flush=True)
 ENV_BASE_URL: str   = os.getenv("ENV_BASE_URL", "http://localhost:7860").rstrip("/")
 INFERENCE_DEBUG: bool = os.getenv("INFERENCE_DEBUG", "0") == "1"
 BENCHMARK       = "promptforge"
@@ -151,9 +142,10 @@ def _emit_connection_failure_runs(reason: str) -> None:
         log_end(success=False, steps=0, score=0.0, rewards=[])
 
 
-def _touch_llm_proxy(client: OpenAI, obs: dict[str, Any]) -> None:
+def _touch_llm_proxy(client: OpenAI, obs: Optional[dict[str, Any]] = None) -> None:
     """Make one lightweight call so evaluator proxy traffic is always present."""
     try:
+        obs = obs or {}
         payload = {
             "task_difficulty": obs.get("task_difficulty"),
             "step_count": obs.get("step_count"),
@@ -313,21 +305,16 @@ def run_task(env_client: PromptForgeEnvClient, client: OpenAI, difficulty: str) 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 def main() -> None:
-    # Prefer API_KEY (injected by evaluator proxy); fall back to HF_TOKEN
-    # only for local development runs.
-    api_key = API_KEY or HF_TOKEN
-    if not api_key:
-        _dbg("[config fail] API_KEY (or HF_TOKEN fallback) is required")
-        _emit_connection_failure_runs("API_KEY missing")
+    try:
+        api_base_url = os.environ["API_BASE_URL"]
+        api_key = os.environ["API_KEY"]
+    except KeyError as exc:
+        _dbg(f"[config fail] missing required env var: {exc}")
+        _emit_connection_failure_runs("missing API_BASE_URL or API_KEY")
         return
 
-    if not API_KEY:
-        _dbg("[config warn] API_KEY not set; using HF_TOKEN fallback for local run")
-
-    print(f"[CONFIG] Using base_url={API_BASE_URL} api_key={'<proxy>' if API_KEY else '<hf_token>'}",
-          file=sys.stderr, flush=True)
-
-    client = OpenAI(base_url=API_BASE_URL, api_key=api_key)
+    client = OpenAI(base_url=api_base_url, api_key=api_key)
+    _touch_llm_proxy(client)
     try:
         with PromptForgeEnvClient(base_url=ENV_BASE_URL).sync() as env_client:
             for difficulty in TASKS:
