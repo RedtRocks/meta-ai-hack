@@ -93,6 +93,9 @@ class PromptForgeEnvironment(Environment):
         perplexity_penalty = 0.0
         done = False
 
+        # Capture token count BEFORE this action modifies the AST (for PBRS)
+        prev_tokens = ep.previous_token_count
+
         # ── Dispatch ───────────────────────────────────────────────────────────
         if action.action_type == "SUBMIT":
             if ep.submitted:
@@ -143,16 +146,20 @@ class PromptForgeEnvironment(Environment):
             done = True
             result_msg += " [Truncated: max steps reached]"
 
-        # ── Reward ────────────────────────────────────────────────────────────
+        # ── Reward (PBRS — Potential-Based Reward Shaping) ─────────────────
         curr_tokens = ep.current_ast.node_registry[ep.current_ast.root_id].token_count
         reward = compute_reward(
             original_token_count=ep.original_token_count,
+            previous_token_count=prev_tokens,
             current_token_count=curr_tokens,
             quality_score=quality_score,
             perplexity_penalty=perplexity_penalty,
-            probe_steps_used=ep.probe_steps_used,
+            action_type=action.action_type,
             is_submit=(action.action_type == "SUBMIT"),
         )
+
+        # Update previous_token_count for the next step's PBRS calculation
+        ep.previous_token_count = curr_tokens
 
         # Update openenv-core State
         self._state.step_count = ep.step_count
@@ -403,3 +410,4 @@ class _EpisodeData:
         self.probe_budget: int = PROBE_BUDGET
         self.probe_steps_used: int = 0
         self.submitted: bool = False
+        self.previous_token_count: int = original_token_count  # PBRS baseline

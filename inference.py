@@ -79,13 +79,8 @@ TASK_PRUNE_PLANS: dict[str, list[str]] = {
         "Closing Instructions",
     ],
     "medium": [
+        "always elaborate fully on internal database schema",
         "Section 3: Architecture Documentation",
-        "Section 4: Code Quality Standards",
-        "Section 5: Security Documentation",
-        "Section 7: Compliance and Privacy",
-        "Section 1: Core Responsibilities",
-        "Section 2: Documentation Standards",
-        "Section 6: API Reference Structure",
     ],
     "hard": [
         "Legacy Tool Instructions",
@@ -246,11 +241,26 @@ def _choose_action(client: OpenAI, obs: dict[str, Any]) -> dict[str, Any]:
     return parsed_action
 
 
-# ── Episode runner ────────────────────────────────────────────────────────────
+# Theoretical bounds for PromptForge cumulative returns:
+#   Best : PBRS token reduction (~0.4) + quality submit (~0.4) ≈ 0.8 ideal max
+#   Worst: multiple -0.5 perplexity penalties + -0.02 probes ≈ -2.5 floor
+_SCORE_MIN = -2.5
+_SCORE_MAX =  1.5
+
+
 def _normalize(rewards: list[float]) -> float:
+    """Normalize cumulative episode return to [0, 1] via Min-Max scaling.
+
+    Uses the SUM of all step rewards (the RL cumulative return) rather than
+    just the terminal reward.  This ensures trajectory efficiency matters:
+    an agent solving a task in 3 steps scores higher than one taking 15 steps,
+    which provides the intra-group variance GRPO needs to learn.
+    """
     if not rewards:
         return 0.0
-    return max(0.0, min(1.0, (rewards[-1] + 0.5) / 1.5))
+    cumulative = sum(rewards)
+    normalized = (cumulative - _SCORE_MIN) / (_SCORE_MAX - _SCORE_MIN)
+    return max(0.0, min(1.0, round(normalized, 3)))
 
 
 def run_task(env_client: PromptForgeEnvClient, client: OpenAI, difficulty: str) -> None:
@@ -305,15 +315,17 @@ def run_task(env_client: PromptForgeEnvClient, client: OpenAI, difficulty: str) 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 def main() -> None:
-    try:
-        api_base_url = os.environ["API_BASE_URL"]
-        api_key = os.environ["API_KEY"]
-    except KeyError as exc:
-        _dbg(f"[config fail] missing required env var: {exc}")
-        _emit_connection_failure_runs("missing API_BASE_URL or API_KEY")
+    # Per Meta OpenEnv Guidelines: API_BASE_URL and MODEL_NAME must have defaults.
+    # HF_TOKEN is mandatory (no default), used as the api_key for the OpenAI client.
+    api_base_url = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+    hf_token = os.getenv("HF_TOKEN") or os.getenv("API_KEY")  # API_KEY injected by evaluator proxy
+
+    if not hf_token:
+        _dbg("[config fail] HF_TOKEN (or API_KEY) is required but not set")
+        _emit_connection_failure_runs("missing HF_TOKEN / API_KEY")
         return
 
-    client = OpenAI(base_url=api_base_url, api_key=api_key)
+    client = OpenAI(base_url=api_base_url, api_key=hf_token)
     _touch_llm_proxy(client)
     try:
         with PromptForgeEnvClient(base_url=ENV_BASE_URL).sync() as env_client:
