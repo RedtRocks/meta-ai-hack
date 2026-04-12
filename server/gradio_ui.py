@@ -35,92 +35,123 @@ def ui_state(env):
     return env, env.state.model_dump_json(indent=2), "State refreshed"
 
 def build_ui(fastapi_app):
-    # CSS to enforce Poppins font and remove any pseudo-gradients
+    # CSS to enforce Poppins font and sleek dark theme base
     custom_css = """
     * {
         font-family: 'Poppins', sans-serif !important;
-        background-image: none !important; 
+        font-size: 15px;
     }
     .gradio-container {
-        background: #EBF4F6 !important;
+        background: #111111 !important;
     }
     .dark .gradio-container {
-        background: #09637E !important;
+        background: #111111 !important;
     }
+    /* Make code editors slightly larger font */
     textarea {
         font-family: monospace !important;
+        font-size: 14px !important;
+    }
+    /* Stylish subtle borders */
+    .gr-box {
+        border-radius: 8px !important;
+        border: 1px solid #333333 !important;
     }
     """
 
-    # Flat, sleek theme using the requested color palette
+    # Apple Dark Theme Colors 
     theme = gr.themes.Soft(
-        font=[gr.themes.GoogleFont("Poppins"), "sans-serif"]
+        font=[gr.themes.GoogleFont("Poppins"), "sans-serif"],
+        text_size="lg",  # Make general UI text larger
     ).set(
-        body_background_fill="#EBF4F6",
-        body_background_fill_dark="#09637E",
-        button_primary_background_fill="#088395",
-        button_primary_background_fill_dark="#088395",
-        button_primary_background_fill_hover="#09637E",
-        button_secondary_background_fill="#7AB2B2",
-        button_secondary_background_fill_hover="#088395",
+        body_background_fill="#111111",
+        body_background_fill_dark="#111111",
+        block_background_fill="#1C1C1E",
+        block_background_fill_dark="#1C1C1E",
+        block_label_background_fill="#2C2C2E",
+        block_label_background_fill_dark="#2C2C2E",
+        block_label_text_color="#EBEBF5",
+        block_label_text_color_dark="#EBEBF5",
+        button_primary_background_fill="#0A84FF",
+        button_primary_background_fill_dark="#0A84FF",
+        button_primary_background_fill_hover="#007AFF",
+        button_secondary_background_fill="#2C2C2E",
+        button_secondary_background_fill_hover="#3A3A3C",
         button_primary_text_color="white",
-        button_secondary_text_color="white",
+        button_secondary_text_color="#EBEBF5",
+        border_color_primary="#38383A",
+        border_color_primary_dark="#38383A",
+        background_fill_primary="#000000",
+        background_fill_primary_dark="#000000",
+        background_fill_secondary="#1C1C1E",
+        background_fill_secondary_dark="#1C1C1E",
+        body_text_color="#EBEBF5",
+        body_text_color_dark="#EBEBF5"
     )
 
     with gr.Blocks(title="PromptForge", css=custom_css, theme=theme) as demo:
         # Create a session-specific environment container
         env_state = gr.State(None)
 
-        with gr.Row():
-            # LEFT SIDEBAR
-            with gr.Column(scale=1, min_width=320):
-                gr.Markdown("### Quick Start\n**Connect to this environment**")
-                gr.Markdown("Connect from Python using `PromptForgeEnvClient`:")
-                gr.Code(
-                    value='''from client import PromptForgeEnvClient
+        gr.Markdown("# 🔨 PromptForge Web UI\\nWelcome to the reinforcement learning environment for prompt debt elimination.")
 
-with PromptForgeEnvClient.from_env("promptforge") as env:
-    obs = env.reset()
-    action = {"action_type": "PROBE", "node_id": "..."}
-    obs = env.step(action)''',
-                    language="python",
+        with gr.Row():
+            # LEFT SIDEBAR - INSTRUCTIONS
+            with gr.Column(scale=1, min_width=320):
+                gr.Markdown("### 📖 How to Test Manually")
+                gr.Markdown(
+                    "1. Click **Reset 🔄** on the right to start.\\n"
+                    "2. Look at the **Raw JSON Response** area. Scroll down to `ast_summary` and find the `node_id` of the text you want to prune.\\n"
+                    "3. Paste the following into the **Action JSON** box, replacing `<id>` entirely:\\n"
+                )
+                gr.Code(
+                    value='{\\n  "action_type": "PRUNE_BRANCH",\\n  "node_id": "<id>"\\n}',
+                    language="json",
                     interactive=False
                 )
-                gr.Markdown("<br>**Or connect directly to a running server:**")
+                gr.Markdown(
+                    "4. Click **Step ▶**. Look at the `Status output` box to see your positive token-reduction reward!\\n"
+                    "5. To finish, paste this and click Step:\\n"
+                )
+                gr.Code(
+                    value='{\\n  "action_type": "SUBMIT"\\n}',
+                    language="json",
+                    interactive=False
+                )
+                
+                gr.Markdown("---")
+                gr.Markdown("### 💻 Connect via Code")
                 gr.Code(
                     value='''from client import PromptForgeEnvClient
-env = PromptForgeEnvClient(base_url="http://localhost:7860")''',
+env = PromptForgeEnvClient(base_url="http://localhost:7860")
+env.reset()''',
                     language="python",
                     interactive=False
                 )
-                gr.Markdown("<br>**Contribute to this environment**")
-                gr.Markdown("Submit improvements via pull request on the Hugging Face Hub.")
-                gr.Code(
-                    value="openenv clone raunaqmittal2004/promptforge\ncd promptforge\nopenenv push",
-                    language="shell",
-                    interactive=False
+                
+            # MIDDLE COLUMN - INPUTS & STATUS
+            with gr.Column(scale=2, min_width=320):
+                gr.Markdown("### 🕹️ Controls")
+                
+                action_input = gr.Code(
+                    label="Code (Action JSON)", 
+                    language="json",
+                    value='{\\n  "action_type": "START_EPISODE",\\n  "task_difficulty": "easy"\\n}',
+                    interactive=True,
+                    lines=8
                 )
                 
-            # RIGHT PLAYGROUND
-            with gr.Column(scale=3):
-                gr.Markdown("## Playground\nClick **Reset** to start a new episode.")
+                with gr.Row():
+                    step_btn = gr.Button("Step ▶", variant="primary")
+                    reset_btn = gr.Button("Reset 🔄")
+                    state_btn = gr.Button("Get State")
                 
-                with gr.Group():
-                    action_input = gr.Code(
-                        label="Code (Action JSON)", 
-                        language="json",
-                        value='{\n  "action_type": "START_EPISODE",\n  "task_difficulty": "easy"\n}',
-                        interactive=True,
-                        lines=5
-                    )
-                    
-                    with gr.Row():
-                        step_btn = gr.Button("Step", variant="primary")
-                        reset_btn = gr.Button("Reset")
-                        state_btn = gr.Button("Get state")
-                    
-                    status_text = gr.Textbox(label="Status", interactive=False)
-                    json_output = gr.Code(label="Raw JSON response", language="json", interactive=False, lines=20)
+                status_text = gr.Textbox(label="Status output", interactive=False)
+
+            # RIGHT COLUMN - HUGE OUTPUT
+            with gr.Column(scale=3, min_width=450):
+                gr.Markdown("### 👁️ Observation Space")
+                json_output = gr.Code(label="Raw JSON response", language="json", interactive=False, lines=25)
 
         # Event listeners
         reset_btn.click(fn=ui_reset, inputs=[env_state], outputs=[env_state, json_output, status_text])
@@ -128,3 +159,4 @@ env = PromptForgeEnvClient(base_url="http://localhost:7860")''',
         state_btn.click(fn=ui_state, inputs=[env_state], outputs=[env_state, json_output, status_text])
         
     return gr.mount_gradio_app(fastapi_app, demo, path="/")
+
