@@ -24,6 +24,7 @@ Built on the official [`openenv-core`](https://pypi.org/project/openenv-core/) l
 ## What is Prompt Debt?
 
 Prompt Debt is the accumulation of technical debt inside LLM system prompts:
+
 - **Dead Instructions** — rules that no longer apply
 - **Duplicate Few-Shot Examples** — redundant examples that waste tokens
 - **Mandate-Prohibition Conflicts** — contradictory "always do X / never do Y" pairs
@@ -60,11 +61,11 @@ Root:
 
 ## Three Task Scenarios
 
-| Task | Difficulty | Prompt Debt Type |
-|---|---|---|
-| `task_few_shot_debt` | Easy | Duplicate / placeholder few-shot examples |
-| `task_mandate_conflict` | Medium | "always claim X" vs "never claim X" conflicts |
-| `task_schema_archaeology` | Hard | Deprecated param `ticket_priority` vs. correct `ticket_priority_level` (lexical trap) |
+| Task                      | Difficulty | Prompt Debt Type                                                                      |
+| ------------------------- | ---------- | ------------------------------------------------------------------------------------- |
+| `task_few_shot_debt`      | Easy       | Duplicate / placeholder few-shot examples                                             |
+| `task_mandate_conflict`   | Medium     | "always claim X" vs "never claim X" conflicts                                         |
+| `task_schema_archaeology` | Hard       | Deprecated param `ticket_priority` vs. correct `ticket_priority_level` (lexical trap) |
 
 ---
 
@@ -72,14 +73,14 @@ Root:
 
 All actions use the **flat `PromptForgeAction` model** (inherits from openenv-core `Action`):
 
-| `action_type` | Required fields | Effect |
-|---|---|---|
-| `START_EPISODE` | `task_difficulty` | Reset episode with chosen difficulty |
-| `PRUNE_BRANCH` | `node_id` | Permanently delete AST node + subtree |
-| `MOVE_NODE` | `node_id`, `target_parent_id` | Relocate node to new parent |
-| `MERGE_NODES` | `node_id`, `node_id_2` | Combine two sibling nodes |
-| `PROBE` | `node_id` | Non-destructive coherence check (AST restored after) |
-| `SUBMIT` | — | Terminate episode, trigger grader |
+| `action_type`   | Required fields               | Effect                                               |
+| --------------- | ----------------------------- | ---------------------------------------------------- |
+| `START_EPISODE` | `task_difficulty`             | Reset episode with chosen difficulty                 |
+| `PRUNE_BRANCH`  | `node_id`                     | Permanently delete AST node + subtree                |
+| `MOVE_NODE`     | `node_id`, `target_parent_id` | Relocate node to new parent                          |
+| `MERGE_NODES`   | `node_id`, `node_id_2`        | Combine two sibling nodes                            |
+| `PROBE`         | `node_id`                     | Non-destructive coherence check (AST restored after) |
+| `SUBMIT`        | —                             | Terminate episode, trigger grader                    |
 
 ---
 
@@ -184,11 +185,11 @@ bash scripts/validate-submission.sh https://your-space.hf.space .
 
 Measured baseline benchmark (3 runs, local server on `127.0.0.1:7862`, grader model `llama-3.1-8b-instant`):
 
-| Task | Runs | Score Mean | Reward Mean | Success Rate |
-|---|---:|---:|---:|---:|
-| Easy | 3 | 0.55 | 0.33 | 1.00 |
-| Medium | 3 | 0.64 | 0.47 | 1.00 |
-| Hard | 3 | 0.59 | 0.38 | 1.00 |
+| Task   | Runs | Score Mean | Reward Mean | Success Rate |
+| ------ | ---: | ---------: | ----------: | -----------: |
+| Easy   |    3 |       0.55 |        0.33 |         1.00 |
+| Medium |    3 |       0.64 |        0.47 |         1.00 |
+| Hard   |    3 |       0.59 |        0.38 |         1.00 |
 
 These values are produced by running:
 
@@ -206,19 +207,19 @@ Current exhaustive optimum (under the predefined hard patterns) matches the base
 
 Recent quality improvement: the hard-task grader now accepts both `HIGH` and `CRITICAL` ticket priorities for severe payment outages, which better reflects real incident triage behavior.
 
-*Zero-shot summarization models struggle significantly with the `Hard` schema task due to rigid API parameter constraints, necessitating multi-step `PROBE` state exploration.*
+_Zero-shot summarization models struggle significantly with the `Hard` schema task due to rigid API parameter constraints, necessitating multi-step `PROBE` state exploration._
 
 ---
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `GRADER_API_BASE` | `https://api.openai.com/v1` | Grader API endpoint |
-| `GRADER_MODEL_NAME` | `gpt-4o-mini` | Grader model |
-| `GRADER_API_KEY` | *(falls back to `HF_TOKEN`)* | Grader API key |
-| `API_BASE_URL` | `https://api.groq.com/openai/v1` | Inference agent endpoint |
-| `MODEL_NAME` | `llama-3.3-70b-versatile` | Inference agent model |
-| `ENV_BASE_URL` | `http://localhost:7860` | PromptForge server URL |
-| `PERPLEXITY_THRESHOLD_MULTIPLIER` | `1.5` | PPL guard threshold |
-| `PERPLEXITY_PENALTY_SCALAR` | `-0.5` | PPL guard penalty |
+| Variable                          | Default                          | Description              |
+| --------------------------------- | -------------------------------- | ------------------------ |
+| `GRADER_API_BASE`                 | `https://api.openai.com/v1`      | Grader API endpoint      |
+| `GRADER_MODEL_NAME`               | `gpt-4o-mini`                    | Grader model             |
+| `GRADER_API_KEY`                  | _(falls back to `HF_TOKEN`)_     | Grader API key           |
+| `API_BASE_URL`                    | `https://api.groq.com/openai/v1` | Inference agent endpoint |
+| `MODEL_NAME`                      | `llama-3.3-70b-versatile`        | Inference agent model    |
+| `ENV_BASE_URL`                    | `http://localhost:7860`          | PromptForge server URL   |
+| `PERPLEXITY_THRESHOLD_MULTIPLIER` | `1.5`                            | PPL guard threshold      |
+| `PERPLEXITY_PENALTY_SCALAR`       | `-0.5`                           | PPL guard penalty        |
