@@ -47,12 +47,10 @@ def build_ui(fastapi_app):
     .dark .gradio-container {
         background: #111111 !important;
     }
-    /* Make code editors slightly larger font */
     textarea {
         font-family: monospace !important;
         font-size: 14px !important;
     }
-    /* Stylish subtle borders */
     .gr-box {
         border-radius: 8px !important;
         border: 1px solid #333333 !important;
@@ -62,7 +60,7 @@ def build_ui(fastapi_app):
     # Apple Dark Theme Colors 
     theme = gr.themes.Soft(
         font=[gr.themes.GoogleFont("Poppins"), "sans-serif"],
-        text_size="lg",  # Make general UI text larger
+        text_size="lg",
     ).set(
         body_background_fill="#111111",
         body_background_fill_dark="#111111",
@@ -93,65 +91,56 @@ def build_ui(fastapi_app):
         # Create a session-specific environment container
         env_state = gr.State(None)
 
-        gr.Markdown("# 🔨 PromptForge Web UI\\nWelcome to the reinforcement learning environment for prompt debt elimination.")
-
         with gr.Row():
-            # LEFT SIDEBAR - INSTRUCTIONS
+            # LEFT SIDEBAR
             with gr.Column(scale=1, min_width=320):
-                gr.Markdown("### 📖 How to Test Manually")
-                gr.Markdown(
-                    "1. Click **Reset 🔄** on the right to start.\\n"
-                    "2. Look at the **Raw JSON Response** area. Scroll down to `ast_summary` and find the `node_id` of the text you want to prune.\\n"
-                    "3. Paste the following into the **Action JSON** box, replacing `<id>` entirely:\\n"
-                )
-                gr.Code(
-                    value='{\\n  "action_type": "PRUNE_BRANCH",\\n  "node_id": "<id>"\\n}',
-                    language="json",
-                    interactive=False
-                )
-                gr.Markdown(
-                    "4. Click **Step ▶**. Look at the `Status output` box to see your positive token-reduction reward!\\n"
-                    "5. To finish, paste this and click Step:\\n"
-                )
-                gr.Code(
-                    value='{\\n  "action_type": "SUBMIT"\\n}',
-                    language="json",
-                    interactive=False
-                )
-                
-                gr.Markdown("---")
-                gr.Markdown("### 💻 Connect via Code")
+                gr.Markdown("### Quick Start\n**Connect to this environment**")
+                gr.Markdown("Connect from Python using `PromptForgeEnvClient`:")
                 gr.Code(
                     value='''from client import PromptForgeEnvClient
-env = PromptForgeEnvClient(base_url="http://localhost:7860")
-env.reset()''',
+
+with PromptForgeEnvClient.from_env("promptforge") as env:
+    obs = env.reset()
+    action = {"action_type": "PROBE", "node_id": "..."}
+    obs = env.step(action)''',
                     language="python",
                     interactive=False
                 )
-                
-            # MIDDLE COLUMN - INPUTS & STATUS
-            with gr.Column(scale=2, min_width=320):
-                gr.Markdown("### 🕹️ Controls")
-                
-                action_input = gr.Code(
-                    label="Code (Action JSON)", 
-                    language="json",
-                    value='{\\n  "action_type": "START_EPISODE",\\n  "task_difficulty": "easy"\\n}',
-                    interactive=True,
-                    lines=8
+                gr.Markdown("<br>**Or connect directly to a running server:**")
+                gr.Code(
+                    value='''from client import PromptForgeEnvClient
+env = PromptForgeEnvClient(base_url="http://localhost:7860")''',
+                    language="python",
+                    interactive=False
+                )
+                gr.Markdown("<br>**Contribute to this environment**")
+                gr.Markdown("Submit improvements via pull request on the Hugging Face Hub.")
+                gr.Code(
+                    value="openenv clone raunaqmittal2004/promptforge\ncd promptforge\nopenenv push",
+                    language="shell",
+                    interactive=False
                 )
                 
-                with gr.Row():
-                    step_btn = gr.Button("Step ▶", variant="primary")
-                    reset_btn = gr.Button("Reset 🔄")
-                    state_btn = gr.Button("Get State")
+            # RIGHT PLAYGROUND
+            with gr.Column(scale=3):
+                gr.Markdown("## Playground\nClick **Reset** to start a new episode.")
                 
-                status_text = gr.Textbox(label="Status output", interactive=False)
-
-            # RIGHT COLUMN - HUGE OUTPUT
-            with gr.Column(scale=3, min_width=450):
-                gr.Markdown("### 👁️ Observation Space")
-                json_output = gr.Code(label="Raw JSON response", language="json", interactive=False, lines=25)
+                with gr.Group():
+                    action_input = gr.Code(
+                        label="Code (Action JSON)", 
+                        language="json",
+                        value='{\n  "action_type": "START_EPISODE",\n  "task_difficulty": "easy"\n}',
+                        interactive=True,
+                        lines=5
+                    )
+                    
+                    with gr.Row():
+                        step_btn = gr.Button("Step", variant="primary")
+                        reset_btn = gr.Button("Reset")
+                        state_btn = gr.Button("Get state")
+                    
+                    status_text = gr.Textbox(label="Status", interactive=False)
+                    json_output = gr.Code(label="Raw JSON response", language="json", interactive=False, lines=20)
 
         # Event listeners
         reset_btn.click(fn=ui_reset, inputs=[env_state], outputs=[env_state, json_output, status_text])
@@ -159,4 +148,3 @@ env.reset()''',
         state_btn.click(fn=ui_state, inputs=[env_state], outputs=[env_state, json_output, status_text])
         
     return gr.mount_gradio_app(fastapi_app, demo, path="/")
-
