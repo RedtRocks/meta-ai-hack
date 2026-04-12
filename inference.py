@@ -215,15 +215,14 @@ def _task_specific_action(obs: dict[str, Any]) -> dict[str, Any]:
 
 
 def _choose_action(client: OpenAI, obs: dict[str, Any]) -> dict[str, Any]:
-    task_specific_action = _task_specific_action(obs)
-    if task_specific_action["action_type"] != "SUBMIT":
-        return task_specific_action
-
+    """Always call the LLM proxy first (required by evaluator), then fall back."""
     summary = {k: obs[k] for k in (
         "ast_summary", "step_count", "max_steps", "probe_budget_remaining",
         "current_token_count", "original_token_count", "token_reduction_pct",
         "task_difficulty", "last_action_result",
     ) if k in obs}
+
+    llm_action: Optional[dict[str, Any]] = None
     try:
         resp = client.chat.completions.create(
             model=MODEL_NAME,
@@ -234,16 +233,26 @@ def _choose_action(client: OpenAI, obs: dict[str, Any]) -> dict[str, Any]:
             temperature=0,
         )
         raw = resp.choices[0].message.content or "{}"
-        parsed_action = _parse_action(raw)
+        parsed = _parse_action(raw)
+        if parsed["action_type"] != "SUBMIT":
+            llm_action = parsed
     except Exception as exc:
         _dbg(f"[LLM fail] {exc}")
-        parsed_action = dict(DEFAULT_ACTION)
 
+    if llm_action is not None:
+        return llm_action
+
+    # Fallback 1: deterministic task-specific pruning plan
+    task_specific_action = _task_specific_action(obs)
+    if task_specific_action["action_type"] != "SUBMIT":
+        return task_specific_action
+
+    # Fallback 2: keyword heuristic scan
     heuristic_action = _heuristic(obs)
     if heuristic_action["action_type"] != "SUBMIT":
         return heuristic_action
 
-    return parsed_action
+    return dict(DEFAULT_ACTION)
 
 
 # ── Episode runner ────────────────────────────────────────────────────────────
@@ -270,7 +279,6 @@ def run_task(env_client: PromptForgeEnvClient, client: OpenAI, difficulty: str) 
         # Then send START_EPISODE as the first step to pick difficulty
         start_result = env_client.step(PromptForgeAction(**start_action))
         obs = start_result.observation.model_dump()
-        _touch_llm_proxy(client, obs)
         # ─────────────────────────────────────────────────────────────────────
 
         for step in range(1, MAX_STEPS_CAP + 1):
@@ -305,16 +313,15 @@ def run_task(env_client: PromptForgeEnvClient, client: OpenAI, difficulty: str) 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 def main() -> None:
-    try:
-        api_base_url = os.environ["API_BASE_URL"]
-        api_key = os.environ["API_KEY"]
-    except KeyError as exc:
-        _dbg(f"[config fail] missing required env var: {exc}")
-        _emit_connection_failure_runs("missing API_BASE_URL or API_KEY")
-        return
+    # Read API credentials exactly as Meta's evaluator injects them
+    api_base_url = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+    # Evaluator injects API_KEY; also check HF_TOKEN as fallback per sample spec
+    api_key = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
+    if not api_key:
+        _dbg("[config fail] missing API_KEY and HF_TOKEN; proxy calls will fail")
+        api_key = "missing-key"
 
     client = OpenAI(base_url=api_base_url, api_key=api_key)
-    _touch_llm_proxy(client)
     try:
         with PromptForgeEnvClient(base_url=ENV_BASE_URL).sync() as env_client:
             for difficulty in TASKS:
