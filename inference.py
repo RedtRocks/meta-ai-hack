@@ -32,13 +32,18 @@ from dotenv import load_dotenv
 from client import PromptForgeEnvClient
 from models import PromptForgeAction
 
-load_dotenv()
+load_dotenv(override=False)  # never override evaluator-injected env vars
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 API_BASE_URL: str   = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME: str     = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 API_KEY: Optional[str] = os.getenv("API_KEY")
 HF_TOKEN: Optional[str]      = os.getenv("HF_TOKEN")
+
+# Debug: log which API base URL is being used
+print(f"[CONFIG] API_BASE_URL={API_BASE_URL}", file=sys.stderr, flush=True)
+print(f"[CONFIG] API_KEY={'set' if API_KEY else 'NOT SET'}", file=sys.stderr, flush=True)
+print(f"[CONFIG] MODEL_NAME={MODEL_NAME}", file=sys.stderr, flush=True)
 ENV_BASE_URL: str   = os.getenv("ENV_BASE_URL", "http://localhost:7860").rstrip("/")
 INFERENCE_DEBUG: bool = os.getenv("INFERENCE_DEBUG", "0") == "1"
 BENCHMARK       = "promptforge"
@@ -308,6 +313,8 @@ def run_task(env_client: PromptForgeEnvClient, client: OpenAI, difficulty: str) 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 def main() -> None:
+    # Prefer API_KEY (injected by evaluator proxy); fall back to HF_TOKEN
+    # only for local development runs.
     api_key = API_KEY or HF_TOKEN
     if not api_key:
         _dbg("[config fail] API_KEY (or HF_TOKEN fallback) is required")
@@ -316,6 +323,9 @@ def main() -> None:
 
     if not API_KEY:
         _dbg("[config warn] API_KEY not set; using HF_TOKEN fallback for local run")
+
+    print(f"[CONFIG] Using base_url={API_BASE_URL} api_key={'<proxy>' if API_KEY else '<hf_token>'}",
+          file=sys.stderr, flush=True)
 
     client = OpenAI(base_url=API_BASE_URL, api_key=api_key)
     try:
