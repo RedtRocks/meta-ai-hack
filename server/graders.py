@@ -38,8 +38,12 @@ import os
 import re
 from typing import Optional
 
+from dotenv import load_dotenv
+
 logger = logging.getLogger(__name__)
 
+# Load .env so uvicorn doesn't require --env-file
+load_dotenv()
 
 # ── Grader configuration ──────────────────────────────────────────────────────
 

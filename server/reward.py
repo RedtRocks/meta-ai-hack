@@ -1,26 +1,32 @@
 """Reward function for the PromptForge environment.
 
-Full reward formula (on SUBMIT):
-    reward = (token_reduction_score × quality_score)
-             − probe_step_penalty
-             + perplexity_penalty          # already negative or 0.0
+Uses Potential-Based Reward Shaping (PBRS) to provide dense, incremental
+feedback at every step — satisfying Meta's requirement that the reward function
+"must reward incremental progress toward the objective."
 
-Where:
-    token_reduction_score  = (original_tokens − current_tokens) / original_tokens
-                             clipped to [0.0, 1.0]
-    quality_score          = 1.0 or 0.0 (from Deterministic JSON Grader)
-    probe_step_penalty     = probe_steps_used × 0.02
-    perplexity_penalty     = 0.0 or PERPLEXITY_PENALTY_SCALAR (−0.5 by default)
+Full reward formula:
 
-During non-SUBMIT steps:
-    reward = perplexity_penalty   (coherence guard fires on structural changes)
+    NON-SUBMIT steps (structural edits):
+        If perplexity penalty triggered:   reward = perplexity_penalty  (−0.5)
+        If PROBE action:                   reward = −0.02
+        Otherwise (PRUNE/MOVE/MERGE):      reward = Φ(s') − Φ(s)
+            where Φ(s) = (original_tokens − current_tokens) / original_tokens
 
-Key properties this function enforces:
-    • Agent that reduces tokens but breaks JSON schema:  0.0 × token_reduction = 0.0
-    • Agent that preserves schema but makes zero compression: 0.0 × 1.0 = 0.0
-    • Agent that produces incoherent output: hit by perplexity penalty regardless
-    • Cosine similarity is completely absent — do NOT import sentence-transformers
+    SUBMIT step (terminal):
+        reward = token_reduction_score × quality_score
 
+    The PBRS shaping is policy-invariant (Ng et al., 1999): the potential
+    difference telescopes across the trajectory, so the agent cannot
+    accumulate infinite reward by cycling MOVE/MERGE actions.
+
+Key properties:
+    • Correct prune → immediate positive reward (proportional to tokens removed)
+    • Unnecessary MOVE with no token change → reward = 0.0
+    • Destructive prune → immediate −0.5 penalty
+    • PROBE → immediate −0.02 cost
+    • SUBMIT with broken output → 0.0 (quality_score = 0.0)
+
+Ref: Ng, Harada & Russell (1999) — "Policy Invariance Under Reward Transformations"
 Ref: LLMLingua-2 (Pan et al. 2024) — validates token-level prompt compression.
 Ref: RLPrompt (Deng et al. 2022) — perplexity guard against grammatical collapse.
 """
@@ -30,48 +36,53 @@ from __future__ import annotations
 
 def compute_reward(
     original_token_count: int,
+    previous_token_count: int,
     current_token_count: int,
     quality_score: float,        # 1.0 or 0.0 from Deterministic JSON Grader
     perplexity_penalty: float,   # 0.0 or a negative scalar from DistilGPT-2 guard
-    probe_steps_used: int,       # Total PROBE actions consumed this episode
+    action_type: str,            # e.g. "PRUNE_BRANCH", "PROBE", "SUBMIT"
     is_submit: bool,             # True only when processing a SUBMIT action
 ) -> float:
     """Compute the scalar reward for the current step.
 
     Args:
         original_token_count:  Tokens in the bloated baseline prompt.
-        current_token_count:   Tokens in the current (edited) prompt.
+        previous_token_count:  Tokens at the START of this step (before action).
+        current_token_count:   Tokens AFTER the action was applied.
         quality_score:         Binary quality from the JSON grader (1.0 or 0.0).
                                Meaningful only when is_submit=True.
         perplexity_penalty:    0.0 or a negative float from the perplexity guard.
-        probe_steps_used:      Total PROBE actions used (for small reward penalty).
+        action_type:           String name of the action (for PROBE cost).
         is_submit:             True only for the SUBMIT action processing path.
 
     Returns:
         Scalar reward (float).
     """
-    if not is_submit:
-        # Step-level reward: only the perplexity guard applies during exploration.
-        # Structural actions (PRUNE, MOVE, MERGE) get no positive reward until SUBMIT.
+    # ── 1. Destructive action — immediate penalty (perplexity guard) ──────────
+    if perplexity_penalty < 0.0:
         return float(perplexity_penalty)
 
-    # ── SUBMIT path ───────────────────────────────────────────────────────────
+    # ── 2. PROBE cost — immediate per-use penalty ─────────────────────────────
+    if action_type == "PROBE":
+        return -0.02
 
+    # ── 3. Intermediate step — Potential-Based Reward Shaping (PBRS) ──────────
+    if not is_submit:
+        denom = max(1, original_token_count)
+        phi_prev = (original_token_count - previous_token_count) / denom
+        phi_curr = (original_token_count - current_token_count) / denom
+        # Only positive reward when tokens are actually reduced
+        step_reward = max(0.0, phi_curr - phi_prev)
+        return round(step_reward, 6)
+
+    # ── 4. SUBMIT path — terminal quality bonus ──────────────────────────────
     if original_token_count <= 0:
         token_reduction_score = 0.0
     else:
         token_reduction_score = (
             (original_token_count - current_token_count) / original_token_count
         )
-        # Clip to [0.0, 1.0]: no reward for padding (negative compression)
         token_reduction_score = max(0.0, min(1.0, token_reduction_score))
 
-    probe_step_penalty = probe_steps_used * 0.02   # 0.02 cost per PROBE used
-
-    final_reward = (
-        (token_reduction_score * quality_score)
-        - probe_step_penalty
-        + perplexity_penalty   # already ≤ 0.0
-    )
-
-    return round(final_reward, 6)
+    terminal_reward = token_reduction_score * quality_score
+    return round(terminal_reward, 6)
