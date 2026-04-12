@@ -300,6 +300,64 @@ def _deterministic_fallback_output(task) -> dict:  # type: ignore[type-arg]
     return json.loads(json.dumps(task.ground_truth_json))
 
 
+def _structural_prompt_guard(edited_prompt: str, task) -> float:  # type: ignore[type-arg]
+    """Task-specific deterministic guard on edited prompt structure.
+
+    This prevents accidental full-credit when critical debt remains or valid
+    constraints are over-pruned.
+    """
+    p = edited_prompt.lower()
+
+    if task.task_id == "task_few_shot_debt":
+        removed_markers = [
+            "example 3  # todo",
+            "example 4  # todo",
+            "foo bar baz test placeholder",
+            "asdfghjkl test test test",
+            "dev_null",
+        ]
+        retained_markers = [
+            "example 1",
+            "example 2",
+            "billing_inquiry",
+            "account_access",
+        ]
+    elif task.task_id == "task_mandate_conflict":
+        removed_markers = [
+            "always elaborate fully on internal database schema design",
+            "include table names, column definitions",
+        ]
+        retained_markers = [
+            "rule 5: never discuss internal database schemas",
+            "classified as confidential",
+        ]
+    elif task.task_id == "task_schema_archaeology":
+        removed_markers = [
+            "deprecated tool: lookup_faq",
+            "deprecated tool: create_case",
+            "deprecated tool: notify_team",
+            "ticket_priority (string)",
+            "assignee_group",
+            "notification_channel",
+            "message_body",
+        ]
+        retained_markers = [
+            "tool: search_knowledge_base",
+            "tool: create_ticket",
+            "tool: escalate_to_human",
+            "ticket_priority_level",
+            "source_query_id",
+        ]
+    else:
+        return 1.0
+
+    if any(marker in p for marker in removed_markers):
+        return 0.0
+    if not all(marker in p for marker in retained_markers):
+        return 0.0
+    return 1.0
+
+
 def compute_quality_score(edited_prompt: str, task) -> float:  # type: ignore[type-arg]
     """Hybrid JSON grader with deterministic fallback.
 
@@ -321,14 +379,17 @@ def compute_quality_score(edited_prompt: str, task) -> float:  # type: ignore[ty
 
     output_json = _call_grader_api(edited_prompt, task.grader_test_query)
 
+    # Fail closed for grading API failures to preserve fairness and reproducibility.
     if output_json is None:
-        logger.debug("Grader returned no parseable JSON — using deterministic fallback")
-        output_json = _deterministic_fallback_output(task)
+        logger.warning("Grader returned no parseable JSON — scoring 0.0")
+        return 0.0
 
-    score = _check_json_match(output_json, task)
+    json_score = _check_json_match(output_json, task)
+    structure_score = _structural_prompt_guard(edited_prompt, task)
+    score = 1.0 if (json_score >= 1.0 and structure_score >= 1.0) else 0.0
 
     logger.info(
-        "Quality score: %.1f | task=%s | output_keys=%s",
-        score, task.task_id, list(output_json.keys()),
+        "Quality score: %.1f | task=%s | json=%.1f | structure=%.1f | output_keys=%s",
+        score, task.task_id, json_score, structure_score, list(output_json.keys()),
     )
     return score

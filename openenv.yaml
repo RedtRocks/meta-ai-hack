@@ -55,4 +55,4 @@ transport:
   - type: websocket
     path: /ws
 
-endpoint: "https://raunaqmittal-promptforge.hf.space"
+endpoint: "https://raunaqmittal2004-promptforge.hf.space"

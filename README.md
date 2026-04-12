@@ -110,7 +110,7 @@ The current submission is validated with `openenv validate` and the root `infere
 ### Submission Checklist
 
 - `inference.py` is in the project root.
-- `inference.py` uses `OpenAI` client and requires `HF_TOKEN`.
+- `inference.py` uses `OpenAI` client with evaluator-injected `API_BASE_URL` and `API_KEY`.
 - OpenEnv manifest exists: `openenv.yaml`.
 - Docker build context exists: `Dockerfile`.
 - `python -m openenv.cli validate` passes.
@@ -119,7 +119,7 @@ The current submission is validated with `openenv validate` and the root `infere
 
 ```bash
 pip install -r requirements.txt
-# create .env manually if needed and set at least: HF_TOKEN
+# create .env manually if needed and set at least: API_BASE_URL, API_KEY
 
 # Start server (port 7860)
 uvicorn server.app:app --port 7860
@@ -156,10 +156,11 @@ print(f"done={obs.done}, reward={obs.reward:.3f}")
 # .env
 GRADER_API_BASE=https://api.groq.com/openai/v1
 GRADER_MODEL_NAME=llama-3.3-70b-versatile
-HF_TOKEN=gsk_...       # Groq API key (used as fallback for grader)
+GRADER_API_KEY=gsk_... # Groq API key for grader
 
 API_BASE_URL=https://api.groq.com/openai/v1
 MODEL_NAME=llama-3.3-70b-versatile
+API_KEY=gsk_...        # Inference key used by OpenAI client
 ```
 
 ### Run Smoke Tests
@@ -196,7 +197,7 @@ Measured baseline benchmark using `inference.py` (local server on `127.0.0.1:786
 | Medium |     3 |             0.67 |                   0.10 |         1.00 |
 | Hard   |    10 |             0.81 |                   0.38 |         1.00 |
 
-*Scores reflect the **Potential-Based Reward Shaping (PBRS)** and **Cumulative Return Normalization**, where intermediate efficient pruning correctly yields continuous positive gradients to prevent Advantage Collapse under GRPO.*
+_Scores reflect the **Potential-Based Reward Shaping (PBRS)** and **Cumulative Return Normalization**, where intermediate efficient pruning correctly yields continuous positive gradients to prevent Advantage Collapse under GRPO._
 
 Recent quality improvement: the hard-task grader now accepts both `HIGH` and `CRITICAL` ticket priorities for severe payment outages, which better reflects real incident triage behavior.
 
@@ -206,13 +207,14 @@ _Zero-shot summarization models struggle significantly with the `Hard` schema ta
 
 ## Environment Variables
 
-| Variable                          | Default                          | Description              |
-| --------------------------------- | -------------------------------- | ------------------------ |
-| `GRADER_API_BASE`                 | `https://api.openai.com/v1`      | Grader API endpoint      |
-| `GRADER_MODEL_NAME`               | `gpt-4o-mini`                    | Grader model             |
-| `GRADER_API_KEY`                  | _(falls back to `HF_TOKEN`)_     | Grader API key           |
-| `API_BASE_URL`                    | `https://api.groq.com/openai/v1` | Inference agent endpoint |
-| `MODEL_NAME`                      | `llama-3.3-70b-versatile`        | Inference agent model    |
-| `ENV_BASE_URL`                    | `http://localhost:7860`          | PromptForge server URL   |
-| `PERPLEXITY_THRESHOLD_MULTIPLIER` | `1.5`                            | PPL guard threshold      |
-| `PERPLEXITY_PENALTY_SCALAR`       | `-0.5`                           | PPL guard penalty        |
+| Variable                          | Default                            | Description                                |
+| --------------------------------- | ---------------------------------- | ------------------------------------------ |
+| `GRADER_API_BASE`                 | `https://api.openai.com/v1`        | Grader API endpoint                        |
+| `GRADER_MODEL_NAME`               | `gpt-4o-mini`                      | Grader model                               |
+| `GRADER_API_KEY`                  | _(falls back to `HF_TOKEN`)_       | Grader API key                             |
+| `API_BASE_URL`                    | `https://router.huggingface.co/v1` | Inference agent endpoint                   |
+| `MODEL_NAME`                      | `Qwen/Qwen2.5-72B-Instruct`        | Inference agent model                      |
+| `API_KEY`                         | _(required)_                       | Inference API key (proxy-injected in eval) |
+| `ENV_BASE_URL`                    | `http://localhost:7860`            | PromptForge server URL                     |
+| `PERPLEXITY_THRESHOLD_MULTIPLIER` | `1.5`                              | PPL guard threshold                        |
+| `PERPLEXITY_PENALTY_SCALAR`       | `-0.5`                             | PPL guard penalty                          |

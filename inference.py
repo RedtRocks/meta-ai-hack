@@ -315,17 +315,16 @@ def run_task(env_client: PromptForgeEnvClient, client: OpenAI, difficulty: str) 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 def main() -> None:
-    # Per Meta OpenEnv Guidelines: API_BASE_URL and MODEL_NAME must have defaults.
-    # HF_TOKEN is mandatory (no default), used as the api_key for the OpenAI client.
     api_base_url = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-    hf_token = os.getenv("HF_TOKEN") or os.getenv("API_KEY")  # API_KEY injected by evaluator proxy
+    api_key = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
 
-    if not hf_token:
-        _dbg("[config fail] HF_TOKEN (or API_KEY) is required but not set")
-        _emit_connection_failure_runs("missing HF_TOKEN / API_KEY")
+    # Prefer evaluator-injected API_KEY; allow HF_TOKEN for guideline-compatible local runs.
+    if not api_key:
+        _dbg("[config fail] API_KEY or HF_TOKEN is required but not set")
+        _emit_connection_failure_runs("missing API_KEY/HF_TOKEN")
         return
 
-    client = OpenAI(base_url=api_base_url, api_key=hf_token)
+    client = OpenAI(base_url=api_base_url, api_key=api_key)
     _touch_llm_proxy(client)
     try:
         with PromptForgeEnvClient(base_url=ENV_BASE_URL).sync() as env_client:
