@@ -133,6 +133,17 @@ def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> No
     print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_s}", flush=True)
 
 
+def _emit_connection_failure_runs(reason: str) -> None:
+    """Emit minimal episode logs when the environment is unreachable.
+
+    This keeps stdout contract-compliant and avoids unhandled exceptions.
+    """
+    _dbg(f"[connection fail] {reason}")
+    for difficulty in TASKS:
+        log_start(f"promptforge_{difficulty}")
+        log_end(success=False, steps=0, score=0.0, rewards=[])
+
+
 # ── Action generation ─────────────────────────────────────────────────────────
 def _parse_action(raw: str) -> dict[str, Any]:
     try:
@@ -276,12 +287,17 @@ def run_task(env_client: PromptForgeEnvClient, client: OpenAI, difficulty: str) 
 # ── Entry point ───────────────────────────────────────────────────────────────
 def main() -> None:
     if not HF_TOKEN:
-        raise ValueError("HF_TOKEN environment variable is required")
+        _dbg("[config fail] HF_TOKEN environment variable is required")
+        _emit_connection_failure_runs("HF_TOKEN missing")
+        return
 
     client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
-    with PromptForgeEnvClient(base_url=ENV_BASE_URL).sync() as env_client:
-        for difficulty in TASKS:
-            run_task(env_client, client, difficulty)
+    try:
+        with PromptForgeEnvClient(base_url=ENV_BASE_URL).sync() as env_client:
+            for difficulty in TASKS:
+                run_task(env_client, client, difficulty)
+    except Exception as exc:
+        _emit_connection_failure_runs(str(exc))
 
 
 if __name__ == "__main__":
