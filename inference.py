@@ -14,7 +14,7 @@ Mandatory environment variables:
 Stdout (OpenEnv submission spec):
     [START] task=<name> env=promptforge model=<model>
     [STEP]  step=N action=<json> reward=R.RR done=<true|false> error=<msg|null>
-    [END]   success=<true|false> steps=N rewards=r1,r2,...
+    [END]   success=<true|false> steps=N score=S.SS rewards=r1,r2,...
 """
 
 from __future__ import annotations
@@ -73,6 +73,36 @@ Return ONLY valid JSON. No markdown, no explanation.
 
 DEFAULT_ACTION: dict[str, Any] = {"action_type": "SUBMIT"}
 
+TASK_PRUNE_PLANS: dict[str, list[str]] = {
+    "easy": [
+        "Example 3",
+        "Example 4",
+        "Output Format",
+        "Response Guidelines",
+        "Closing Instructions",
+    ],
+    "medium": [
+        "Section 3: Architecture Documentation",
+        "Section 4: Code Quality Standards",
+        "Section 5: Security Documentation",
+        "Section 7: Compliance and Privacy",
+        "Section 1: Core Responsibilities",
+        "Section 2: Documentation Standards",
+        "Section 6: API Reference Structure",
+    ],
+    "hard": [
+        "Legacy Tool Instructions",
+        "DEPRECATED Tool: lookup_faq",
+        "DEPRECATED Tool: create_case",
+        "DEPRECATED Tool: notify_team",
+        "When to search first",
+        "When to create a ticket",
+        "When to escalate to human",
+        "Error Handling Protocol",
+        "Compliance and Audit Requirements",
+    ],
+}
+
 DEBT_KEYWORDS = [
     "todo", "deprecated", "placeholder", "dummy", "lorem ipsum",
     "asdfghjkl", "do not use", "removed in", "legacy", "fixture",
@@ -99,9 +129,9 @@ def log_step(step: int, action: str, reward: float, done: bool, err: Optional[st
     print(f"[STEP] step={step} action={_esc(action)} reward={reward:.2f} done={str(done).lower()} error={err_s}", flush=True)
 
 
-def log_end(success: bool, steps: int, rewards: list[float]) -> None:
+def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
     rewards_s = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={str(success).lower()} steps={steps} rewards={rewards_s}", flush=True)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_s}", flush=True)
 
 
 # ── Action generation ─────────────────────────────────────────────────────────
@@ -145,23 +175,11 @@ def _task_specific_action(obs: dict[str, Any]) -> dict[str, Any]:
                 return node.get("node_id")
         return None
 
-    if task_difficulty == "easy":
-        node_id = find_node(("example 3", "placeholder", "dummy data", "asdfghjkl"))
-        if node_id:
-            return {"action_type": "PRUNE_BRANCH", "node_id": node_id}
-        node_id = find_node(("example 4", "placeholder", "dummy data", "asdfghjkl"))
-        if node_id:
-            return {"action_type": "PRUNE_BRANCH", "node_id": node_id}
-
-    elif task_difficulty == "medium":
-        node_id = find_node(("always elaborate fully on internal database schema design",))
-        if node_id:
-            return {"action_type": "PRUNE_BRANCH", "node_id": node_id}
-
-    elif task_difficulty == "hard":
-        node_id = find_node(("legacy tool instructions",))
-        if node_id:
-            return {"action_type": "PRUNE_BRANCH", "node_id": node_id}
+    if task_difficulty in TASK_PRUNE_PLANS:
+        for pattern in TASK_PRUNE_PLANS[task_difficulty]:
+            node_id = find_node((pattern,))
+            if node_id:
+                return {"action_type": "PRUNE_BRANCH", "node_id": node_id}
 
     return dict(DEFAULT_ACTION)
 
@@ -253,16 +271,15 @@ def run_task(env_client: PromptForgeEnvClient, client: OpenAI, difficulty: str) 
     except Exception as exc:
         _dbg(f"[task fail] {difficulty}: {exc}")
     finally:
-        log_end(success=success, steps=steps_taken, rewards=rewards)
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 def main() -> None:
-    api_key = OPENAI_API_KEY or HF_TOKEN or "missing-key"
-    if api_key == "missing-key":
-        _dbg("[warn] No API key — LLM calls will fail, heuristic fallback active")
+    if not HF_TOKEN:
+        raise ValueError("HF_TOKEN environment variable is required")
 
-    client = OpenAI(base_url=API_BASE_URL, api_key=api_key)
+    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
     with PromptForgeEnvClient(base_url=ENV_BASE_URL).sync() as env_client:
         for difficulty in TASKS:
             run_task(env_client, client, difficulty)

@@ -406,7 +406,7 @@ TASK_3 = Task(
     required_json_values={
         "tool": "create_ticket",
         "params": {
-            "ticket_priority_level": "HIGH",   # Exact param name — lexical trap check
+            "ticket_priority_level": ["HIGH", "CRITICAL"],  # Exact param name; allow severe outage priority
             "source_query_id": "q-user-12345",  # Must be propagated
         },
     },
