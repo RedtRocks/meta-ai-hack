@@ -67,7 +67,7 @@ def build_ui(fastapi_app):
         button_secondary_text_color="white",
     )
 
-    with gr.Blocks(title="PromptForge") as demo:
+    with gr.Blocks(title="PromptForge", css=custom_css, theme=theme) as demo:
         # Create a session-specific environment container
         env_state = gr.State(None)
 
@@ -127,4 +127,4 @@ env = PromptForgeEnvClient(base_url="http://localhost:7860")''',
         step_btn.click(fn=ui_step, inputs=[env_state, action_input], outputs=[env_state, json_output, status_text])
         state_btn.click(fn=ui_state, inputs=[env_state], outputs=[env_state, json_output, status_text])
         
-    return gr.mount_gradio_app(fastapi_app, demo, path="/", theme=theme, css=custom_css)
+    return gr.mount_gradio_app(fastapi_app, demo, path="/")

@@ -31,7 +31,13 @@ from openenv.core import EnvClient
 from openenv.core.client_types import StepResult
 from openenv.core.env_server.types import State
 
-from .models import PromptForgeAction, PromptForgeObservation
+try:
+    from .models import PromptForgeAction, PromptForgeObservation
+except ImportError:
+    import os as _os, sys as _sys
+
+    _sys.path.insert(0, _os.path.dirname(__file__))
+    from models import PromptForgeAction, PromptForgeObservation
 
 
 class PromptForgeEnvClient(

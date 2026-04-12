@@ -37,16 +37,18 @@ app = create_fastapi_app(
 app = build_ui(app)
 
 
-def main(host: str = "0.0.0.0", port: int = 7860) -> None:
-    """Start the PromptForge server (HF Spaces default port 7860)."""
+def main() -> None:
+    """Start the PromptForge server on the standard HF Spaces port."""
+    import os
     import uvicorn
+
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "7860"))
     uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=7860)
-    parser.add_argument("--host", type=str, default="0.0.0.0")
-    args = parser.parse_args()
-    main(host=args.host, port=args.port)
+    parser.parse_args()
+    main()
