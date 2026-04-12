@@ -8,8 +8,8 @@ The LLM chain uses an OpenAI-compatible API (Groq / HF Router).
 Mandatory environment variables:
     API_BASE_URL       LLM API endpoint  (default: HF router)
     MODEL_NAME         Model name         (default: Qwen/Qwen2.5-72B-Instruct)
-    API_KEY            API key injected by evaluator proxy (preferred)
-    HF_TOKEN           Optional local fallback key
+    API_KEY            API key injected by evaluator proxy (required in eval)
+    HF_TOKEN           Optional local fallback for local runs
     ENV_BASE_URL       PromptForge server (default: http://localhost:7860)
 
 Stdout (OpenEnv submission spec):
@@ -162,7 +162,6 @@ def _touch_llm_proxy(client: OpenAI, obs: dict[str, Any]) -> None:
             ],
             temperature=0,
             max_tokens=16,
-            timeout=20,
         )
     except Exception as exc:
         _dbg(f"[proxy touch fail] {exc}")
@@ -236,8 +235,6 @@ def _choose_action(client: OpenAI, obs: dict[str, Any]) -> dict[str, Any]:
                 {"role": "user",   "content": json.dumps(summary, ensure_ascii=True)},
             ],
             temperature=0,
-            response_format={"type": "json_object"},
-            timeout=30,
         )
         raw = resp.choices[0].message.content or "{}"
         parsed_action = _parse_action(raw)
@@ -314,8 +311,11 @@ def main() -> None:
     api_key = API_KEY or HF_TOKEN
     if not api_key:
         _dbg("[config fail] API_KEY (or HF_TOKEN fallback) is required")
-        _emit_connection_failure_runs("HF_TOKEN missing")
+        _emit_connection_failure_runs("API_KEY missing")
         return
+
+    if not API_KEY:
+        _dbg("[config warn] API_KEY not set; using HF_TOKEN fallback for local run")
 
     client = OpenAI(base_url=API_BASE_URL, api_key=api_key)
     try:
